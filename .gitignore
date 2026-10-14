@@ -37,3 +37,9 @@ dist-ssr
 /vite.config.d.ts
 /vite.config.js.map
 /vite.config.d.ts.map
+
+# Archivos generados por TypeScript y Vite
+*.js.map
+*.d.ts.map
+/vite.config.js
+/vite.config.d.ts

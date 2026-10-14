@@ -7,21 +7,23 @@ interface PacienteRowProps {
 
 export default function PacienteRow({ paciente }: PacienteRowProps) {
   return (
-    <tr className="border-b border-gray-100 transition-colors hover:bg-gray-50">
+    <tr className="border-b border-slate-100 transition-colors hover:bg-slate-50">
       <td className="px-6 py-4">
-        <div className="font-medium text-gray-900">
+        <p className="font-semibold text-slate-800">
           {paciente.nombre} {paciente.apellido}
-        </div>
-        <div className="text-sm text-gray-500">{paciente.email}</div>
+        </p>
+        <p className="mt-1 text-sm text-slate-500">{paciente.email}</p>
       </td>
 
-      <td className="px-6 py-4 text-sm text-gray-700">{paciente.telefono}</td>
+      <td className="px-6 py-4 text-sm text-slate-600">{paciente.telefono}</td>
 
-      <td className="px-6 py-4 text-sm text-gray-700">
+      <td className="px-6 py-4 text-sm text-slate-600">
         {paciente.especialidadAsignada}
       </td>
 
-      <td className="px-6 py-4 text-sm text-gray-700">{paciente.ultimaCita}</td>
+      <td className="px-6 py-4 text-sm text-slate-600">
+        {paciente.ultimaCita}
+      </td>
 
       <td className="px-6 py-4">
         <BadgeEstado estado={paciente.estado} />

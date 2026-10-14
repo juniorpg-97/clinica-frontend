@@ -5,8 +5,8 @@ interface BadgeEstadoProps {
 }
 
 const estilosEstado: Record<EstadoPaciente, string> = {
-  activo: "bg-green-100 text-green-700",
-  inactivo: "bg-gray-100 text-gray-600",
+  activo: "bg-emerald-100 text-emerald-700",
+  inactivo: "bg-rose-100 text-rose-700",
   en_espera: "bg-amber-100 text-amber-700",
 };
 
@@ -19,8 +19,9 @@ const etiquetasEstado: Record<EstadoPaciente, string> = {
 export default function BadgeEstado({ estado }: BadgeEstadoProps) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${estilosEstado[estado]}`}
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${estilosEstado[estado]}`}
     >
+      <span className="h-2 w-2 rounded-full bg-current" aria-hidden="true" />
       {etiquetasEstado[estado]}
     </span>
   );

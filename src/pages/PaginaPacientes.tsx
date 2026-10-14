@@ -1,156 +1,196 @@
-/*
- * Problemas encontrados en el código generado por la IA:
- *
- * 1. Mezclaba la estructura de toda la página en un solo componente,
- *    dificultando la reutilización y el mantenimiento.
- *
- * 2. Los datos de ejemplo estaban directamente en el JSX,
- *    en lugar de estar definidos en una constante independiente.
- *
- * 3. No separaba las responsabilidades en componentes reutilizables,
- *    como BadgeEstado, PacienteRow y BuscadorPacientes.
- */
-
-import { useState } from "react";
-import { pacientesIniciales } from "../data/pacientes";
-import type { Paciente } from "../types/paciente";
-import PacienteRow from "../componentes/pacientes/PacienteRow";
-import BadgeEstado from "../componentes/pacientes/BadgeEstado";
+import Encabezado from "../componentes/layout/Encabezado";
 import BuscadorPacientes from "../componentes/pacientes/BuscadorPacientes";
+import PacienteRow from "../componentes/pacientes/PacienteRow";
+import PacienteCard from "../componentes/pacientes/PacienteCard";
+import { pacientesIniciales } from "../data/pacientes";
+
+// Problemas encontrados en el código generado por la IA:
+// 1. El buscador estaba escrito directamente en la página y no reutilizaba su componente.
+// 2. La tabla y las tarjetas necesitaban una estructura adaptable a diferentes pantallas.
+// 3. Los estados de los pacientes debían mostrarse con etiquetas visuales diferenciadas.
+
+const estados = [
+  { valor: "todos", etiqueta: "Todos los estados" },
+  { valor: "activo", etiqueta: "Activo" },
+  { valor: "inactivo", etiqueta: "Inactivo" },
+  { valor: "en_espera", etiqueta: "En espera" },
+] as const;
 
 export default function PaginaPacientes() {
-  const [pacientes] = useState<Paciente[]>(pacientesIniciales);
-  const [busqueda, setBusqueda] = useState("");
+  const totalPacientes = pacientesIniciales.length;
 
-  const pacientesFiltrados = pacientes.filter((paciente) => {
-    const texto = busqueda.toLowerCase().trim();
+  const pacientesActivos = pacientesIniciales.filter(
+    (paciente) => paciente.estado === "activo",
+  ).length;
 
-    return (
-      `${paciente.nombre} ${paciente.apellido}`.toLowerCase().includes(texto) ||
-      paciente.email.toLowerCase().includes(texto) ||
-      paciente.telefono.includes(texto) ||
-      paciente.especialidadAsignada.toLowerCase().includes(texto)
-    );
-  });
-
+  const pacientesEnEspera = pacientesIniciales.filter(
+    (paciente) => paciente.estado === "en_espera",
+  ).length;
+  const pacientesInactivos = pacientesIniciales.filter(
+    (p) => p.estado === "inactivo",
+  ).length;
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        <header className="mb-8">
-          <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-blue-600">
-            Clínica Salud Integral
-          </p>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-            Pacientes
-          </h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Administra y consulta la información de tus pacientes.
-          </p>
-        </header>
+    <div className="min-h-full">
+      <Encabezado
+        titulo="Pacientes"
+        descripcion="Consulta y organiza la información de los pacientes."
+      />
 
-        <section className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Lista de pacientes
-              </h2>
-              <p className="mt-1 text-sm text-gray-500">
-                {pacientesFiltrados.length}{" "}
-                {pacientesFiltrados.length === 1
-                  ? "paciente encontrado"
-                  : "pacientes encontrados"}
-              </p>
+      <main className="space-y-6 p-4 sm:p-6 lg:p-8">
+        {/* Estadísticas de pacientes */}
+        <section
+          aria-label="Estadísticas de pacientes"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        >
+          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Total de pacientes</p>
+
+            <p className="mt-2 text-3xl font-bold text-slate-900">
+              {totalPacientes}
+            </p>
+
+            <p className="mt-2 text-xs text-slate-500">
+              Registros de demostración
+            </p>
+          </article>
+
+          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">Pacientes activos</p>
+
+            <p className="mt-2 text-3xl font-bold text-emerald-600">
+              {pacientesActivos}
+            </p>
+
+            <p className="mt-2 text-xs text-slate-500">Con estado activo</p>
+          </article>
+
+          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm text-slate-500">En espera</p>
+
+            <p className="mt-2 text-3xl font-bold text-amber-600">
+              {pacientesEnEspera}
+            </p>
+
+            <p className="mt-2 text-xs text-slate-500">
+              Pendientes de atención
+            </p>
+          </article>
+          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-medium text-slate-500">
+              Pacientes inactivos
+            </p>
+            <p className="mt-3 text-3xl font-bold text-rose-600">
+              {pacientesInactivos}
+            </p>
+            <p className="mt-2 text-xs text-slate-500">
+              Pacientes sin estado activo
+            </p>
+          </article>
+        </section>
+
+        {/* Listado de pacientes */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b border-slate-100 p-5 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  Listado de pacientes
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Información general y estado de cada paciente.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                disabled
+                title="Disponible en una siguiente etapa"
+                className="cursor-not-allowed rounded-xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white opacity-60"
+              >
+                + Nuevo paciente
+              </button>
             </div>
 
-            <div className="w-full sm:max-w-md">
-              <BuscadorPacientes value={busqueda} onChange={setBusqueda} />
+            {/* Buscador y filtro visuales; interactividad pendiente */}
+            <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-[1fr_220px] md:items-end">
+              <div className="pointer-events-none opacity-70">
+                <BuscadorPacientes value="" onChange={() => undefined} />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="filtro-estado"
+                  className="mb-2 block text-sm font-medium text-slate-700"
+                >
+                  Filtrar por estado
+                </label>
+
+                <select
+                  id="filtro-estado"
+                  disabled
+                  defaultValue="todos"
+                  className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500 opacity-70"
+                >
+                  {estados.map((estado) => (
+                    <option key={estado.valor} value={estado.valor}>
+                      {estado.etiqueta}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* Tabla visible en pantallas medianas y grandes */}
+          {/* Tarjetas para dispositivos móviles */}
+          <div className="flex flex-col gap-4 p-4 md:hidden">
+            {pacientesIniciales.map((paciente) => (
+              <PacienteCard key={paciente.id} paciente={paciente} />
+            ))}
+          </div>
+
+          {/* Tabla para pantallas medianas y grandes */}
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-left">
-              <thead className="border-b border-gray-200 bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    Paciente
-                  </th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    Teléfono
-                  </th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    Especialidad
-                  </th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    Última cita
-                  </th>
-                  <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                    Estado
-                  </th>
+            <table className="w-full min-w-[800px] text-left">
+              <thead className="bg-slate-50">
+                <tr className="border-b border-slate-200">
+                  {[
+                    "Paciente",
+                    "Teléfono",
+                    "Especialidad",
+                    "Última cita",
+                    "Estado",
+                  ].map((columna) => (
+                    <th
+                      key={columna}
+                      className="px-6 py-4 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    >
+                      {columna}
+                    </th>
+                  ))}
                 </tr>
               </thead>
 
               <tbody>
-                {pacientesFiltrados.map((paciente) => (
+                {pacientesIniciales.map((paciente) => (
                   <PacienteRow key={paciente.id} paciente={paciente} />
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* Tarjetas visibles en móviles */}
-          <div className="flex flex-col gap-4 md:hidden">
-            {pacientesFiltrados.map((paciente) => (
-              <article
-                key={paciente.id}
-                className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
-              >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-gray-900">
-                      {paciente.nombre} {paciente.apellido}
-                    </h3>
-                    <p className="break-words text-sm text-gray-500">
-                      {paciente.email}
-                    </p>
-                  </div>
-
-                  <BadgeEstado estado={paciente.estado} />
-                </div>
-
-                <dl className="space-y-2 text-sm">
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-gray-500">Teléfono</dt>
-                    <dd className="text-right text-gray-800">
-                      {paciente.telefono}
-                    </dd>
-                  </div>
-
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-gray-500">Especialidad</dt>
-                    <dd className="text-right text-gray-800">
-                      {paciente.especialidadAsignada}
-                    </dd>
-                  </div>
-
-                  <div className="flex justify-between gap-3">
-                    <dt className="text-gray-500">Última cita</dt>
-                    <dd className="text-right text-gray-800">
-                      {paciente.ultimaCita}
-                    </dd>
-                  </div>
-                </dl>
-              </article>
-            ))}
-          </div>
-
-          {pacientesFiltrados.length === 0 && (
-            <p className="py-10 text-center text-sm text-gray-500">
-              No se encontraron pacientes con esa búsqueda.
+          {/* Pie del listado */}
+          <div className="flex flex-col gap-1 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-500">
+              Mostrando {totalPacientes} pacientes
             </p>
-          )}
+
+            <span className="text-xs text-slate-400">
+              Datos de demostración
+            </span>
+          </div>
         </section>
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }

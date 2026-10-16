@@ -1,4 +1,8 @@
+import { Link } from "react-router-dom";
+import { Eye } from "lucide-react";
+
 import type { Paciente, EstadoPaciente } from "../../types/paciente";
+
 import BadgeEstado from "./BadgeEstado";
 
 interface PacienteCardProps {
@@ -13,12 +17,13 @@ export default function PacienteCard({
   onEliminar,
 }: PacienteCardProps) {
   return (
-    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h3 className="font-semibold text-slate-900">
             {paciente.nombre} {paciente.apellido}
           </h3>
+
           <p className="mt-1 break-all text-sm text-slate-500">
             {paciente.email}
           </p>
@@ -63,6 +68,14 @@ export default function PacienteCard({
             <option value="en_espera">En espera</option>
           </select>
         </label>
+
+        <Link
+          to={`/pacientes/${paciente.id}`}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-700 transition hover:bg-teal-100"
+        >
+          <Eye size={18} />
+          Ver detalle del paciente
+        </Link>
 
         <button
           type="button"

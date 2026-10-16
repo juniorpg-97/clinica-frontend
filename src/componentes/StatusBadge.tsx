@@ -3,17 +3,24 @@ interface StatusBadgeProps {
 }
 
 export default function StatusBadge({ activo }: StatusBadgeProps) {
-  const color = activo
-    ? "bg-emerald-100 text-emerald-700"
-    : "bg-rose-100 text-rose-700";
+  const estilos = activo
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+    : "border-rose-200 bg-rose-50 text-rose-700";
 
-  const texto = activo ? "Sistema Operativo" : "Modo Mantenimiento";
+  const etiqueta = activo ? "Sistema Operativo" : "Modo Mantenimiento";
 
   return (
     <span
-      className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ${color}`}
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold ${estilos}`}
     >
-      {texto}
+      <span
+        className={`h-2 w-2 rounded-full ${
+          activo ? "bg-emerald-500" : "bg-rose-500"
+        }`}
+        aria-hidden="true"
+      />
+
+      {etiqueta}
     </span>
   );
 }

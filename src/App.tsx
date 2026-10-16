@@ -1,7 +1,5 @@
-import PaginaPacientes from "./pages/PaginaPacientes";
+import FormularioCita from "./pages/FormularioCita";
 
-function App() {
-  return <PaginaPacientes />;
+export default function App() {
+  return <FormularioCita />;
 }
-
-export default App;

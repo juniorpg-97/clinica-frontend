@@ -1,4 +1,8 @@
+import { Link } from "react-router-dom";
+import { Eye } from "lucide-react";
+
 import type { Paciente, EstadoPaciente } from "../../types/paciente";
+
 import BadgeEstado from "./BadgeEstado";
 
 interface PacienteRowProps {
@@ -18,6 +22,7 @@ export default function PacienteRow({
         <p className="font-semibold text-slate-900">
           {paciente.nombre} {paciente.apellido}
         </p>
+
         <p className="mt-1 text-sm text-slate-500">{paciente.email}</p>
       </td>
 
@@ -53,13 +58,23 @@ export default function PacienteRow({
       </td>
 
       <td className="px-6 py-4">
-        <button
-          type="button"
-          onClick={() => onEliminar(paciente.id)}
-          className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
-        >
-          Eliminar
-        </button>
+        <div className="flex flex-col items-start gap-2">
+          <Link
+            to={`/pacientes/${paciente.id}`}
+            className="inline-flex items-center gap-1 whitespace-nowrap text-sm font-semibold text-teal-700 transition hover:text-teal-900"
+          >
+            <Eye size={16} />
+            Ver detalle
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => onEliminar(paciente.id)}
+            className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+          >
+            Eliminar
+          </button>
+        </div>
       </td>
     </tr>
   );

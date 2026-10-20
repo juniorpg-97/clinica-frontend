@@ -77,7 +77,7 @@ export default function PaginaDetallePaciente() {
               </div>
 
               <div className="self-start rounded-xl bg-white px-3 py-2 sm:self-center">
-                <BadgeEstado estado={paciente.estado} />
+                <BadgeEstado estado={paciente.estado ?? "activo"} />
               </div>
             </div>
           </div>

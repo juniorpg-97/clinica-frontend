@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import toast from "react-hot-toast";
 import {
   CheckCircle2,
   CalendarDays,
@@ -13,6 +14,8 @@ import {
 import { citaSchema } from "../schemas/citaSchema";
 import type { CitaFormData } from "../schemas/citaSchema";
 import { useMedicos } from "../hooks/useMedicos";
+import { create as crearCita } from "../services/citas";
+import { extraerMensajeError } from "../lib/errorHandler";
 
 export default function FormularioCita() {
   const navigate = useNavigate();
@@ -40,11 +43,20 @@ export default function FormularioCita() {
   const fechaMinima = new Date().toISOString().split("T")[0];
 
   const onSubmit = async (data: CitaFormData): Promise<void> => {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 1500);
-    });
+    try {
+      await crearCita({
+        pacienteId: 1, // o el ID correspondiente
+        pacienteNombre: data.pacienteNombre,
+        fecha: `${data.fecha}T${data.hora || "09:00"}:00Z`,
+        motivo: data.motivo,
+        estado: "PROGRAMADA",
+      });
 
-    setCitaAgendada(data);
+      toast.success("Cita agendada con éxito");
+      setCitaAgendada(data);
+    } catch (err: unknown) {
+      toast.error(extraerMensajeError(err));
+    }
   };
 
   const agendarOtraCita = (): void => {
@@ -67,7 +79,7 @@ export default function FormularioCita() {
 
   if (citaAgendada !== null) {
     const medicoSeleccionado = medicos.find(
-      (medico) => medico.id === citaAgendada.medicoId,
+      (medico) => String(medico.id) === String(citaAgendada.medicoId),
     );
 
     return (
@@ -82,7 +94,7 @@ export default function FormularioCita() {
           </h1>
 
           <p className="mt-2 text-center text-gray-500">
-            La cita se registró correctamente en esta demostración.
+            La cita se registró correctamente en el sistema.
           </p>
 
           <div className="mt-8 space-y-4 rounded-xl bg-gray-50 p-5">

@@ -1,14 +1,19 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import {
   Users,
   CalendarDays,
   ClipboardList,
   Activity,
   ArrowRight,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 
 import { api } from "../lib/axios";
+import { updateEstado, type Cita, type EstadoCita } from "../services/citas";
+import { extraerMensajeError } from "../lib/errorHandler";
 import type { Metrica } from "../types";
 import MetricCard from "../componentes/MetricCard";
 import StatusBadge from "../componentes/StatusBadge";
@@ -20,6 +25,7 @@ export default function PaginaDashboard() {
   const [citasProgramadas, setCitasProgramadas] = useState<number | null>(null);
   const [citasCompletadas, setCitasCompletadas] = useState<number | null>(null);
 
+  const [citas, setCitas] = useState<Cita[]>([]);
   const [mantenimiento, setMantenimiento] = useState<boolean>(false);
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,17 +39,19 @@ export default function PaginaDashboard() {
 
     async function cargarMetricas() {
       try {
-        const [pacientesRes, medicosRes, programadasRes, completadasRes] =
-          await Promise.all([
-            api.get("/pacientes"),
-            api.get("/medicos"),
-            api.get("/citas", {
-              params: { estado: "Programada" },
-            }),
-            api.get("/citas", {
-              params: { estado: "Completada" },
-            }),
-          ]);
+        const [
+          pacientesRes,
+          medicosRes,
+          programadasRes,
+          completadasRes,
+          todasCitasRes,
+        ] = await Promise.all([
+          api.get("/pacientes"),
+          api.get("/medicos"),
+          api.get("/citas", { params: { estado: "Programada" } }),
+          api.get("/citas", { params: { estado: "Completada" } }),
+          api.get("/citas"),
+        ]);
 
         if (!activo) return;
 
@@ -72,11 +80,16 @@ export default function PaginaDashboard() {
             ? completadasRes.data.length
             : completadasRes.data.total,
         );
+
+        const listadoCitas = Array.isArray(todasCitasRes.data)
+          ? todasCitasRes.data
+          : Array.isArray(todasCitasRes.data.data)
+            ? todasCitasRes.data.data
+            : [];
+        setCitas(listadoCitas as Cita[]);
       } catch (err: unknown) {
         if (!activo) return;
-
         console.error("Error al cargar las métricas del Dashboard:", err);
-
         setError(
           "No se pudieron cargar las métricas. Comprueba que el backend esté funcionando e inténtalo nuevamente.",
         );
@@ -93,6 +106,33 @@ export default function PaginaDashboard() {
       activo = false;
     };
   }, [intento]);
+
+  // Entregable 3: Actualización optimista de citas
+  const handleCambiarEstadoOptimista = async (
+    id: Cita["id"],
+    nuevoEstado: EstadoCita,
+  ): Promise<void> => {
+    // 1. Guardar copia previa del estado para rollback
+    const copiaPrevia = [...citas];
+
+    // 2. Reflejar cambio inmediatamente en pantalla
+    setCitas((prev) =>
+      prev.map((c) =>
+        String(c.id) === String(id) ? { ...c, estado: nuevoEstado } : c,
+      ),
+    );
+
+    try {
+      // 3. Petición a la API
+      await updateEstado(id, nuevoEstado);
+      toast.success("Estado de cita actualizado");
+    } catch (err: unknown) {
+      // 4. Fallo: revertir al snapshot y emitir toasts requeridos
+      setCitas(copiaPrevia);
+      toast.error(extraerMensajeError(err));
+      toast.error("Cambio revertido");
+    }
+  };
 
   const metricas: Metrica[] = [
     {
@@ -160,14 +200,24 @@ export default function PaginaDashboard() {
               </p>
             </div>
 
-            <Link
-              to="/pacientes"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-700"
-            >
-              <Users size={18} />
-              Ver pacientes
-              <ArrowRight size={18} />
-            </Link>
+            <div className="flex gap-3">
+              <Link
+                to="/citas/nueva"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-700"
+              >
+                <CalendarDays size={18} />
+                Nueva cita
+              </Link>
+
+              <Link
+                to="/pacientes"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-700"
+              >
+                <Users size={18} />
+                Ver pacientes
+                <ArrowRight size={18} />
+              </Link>
+            </div>
           </div>
 
           {error && (
@@ -196,6 +246,80 @@ export default function PaginaDashboard() {
             {metricas.map((metrica) => (
               <MetricCard key={metrica.id} metrica={metrica} />
             ))}
+          </div>
+        </section>
+
+        {/* Sección de Citas con UI Optimista */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-slate-900">
+              Gestión de Citas (UI Optimista)
+            </h2>
+            <span className="text-xs text-slate-500">
+              Actualización instantánea con fallback
+            </span>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {citas.map((cita) => (
+              <div
+                key={cita.id}
+                className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div>
+                  <p className="font-semibold text-slate-800">
+                    {cita.pacienteNombre ?? `Cita #${cita.id}`}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {cita.motivo ?? "Consulta médica"} ·{" "}
+                    {new Date(cita.fecha).toLocaleDateString()}
+                  </p>
+                  <span
+                    className={`inline-block mt-1 px-2.5 py-0.5 rounded text-xs font-semibold ${
+                      cita.estado === "COMPLETADA"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : cita.estado === "CANCELADA"
+                          ? "bg-rose-100 text-rose-800"
+                          : "bg-blue-100 text-blue-800"
+                    }`}
+                  >
+                    {cita.estado}
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={cita.estado === "COMPLETADA"}
+                    onClick={() =>
+                      void handleCambiarEstadoOptimista(cita.id, "COMPLETADA")
+                    }
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40"
+                  >
+                    <CheckCircle size={14} />
+                    Completar
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={cita.estado === "CANCELADA"}
+                    onClick={() =>
+                      void handleCambiarEstadoOptimista(cita.id, "CANCELADA")
+                    }
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-40"
+                  >
+                    <XCircle size={14} />
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {citas.length === 0 && !cargando && (
+              <p className="text-sm text-slate-500 py-4 text-center">
+                No hay citas registradas actualmente.
+              </p>
+            )}
           </div>
         </section>
 

@@ -1,9 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import toast from "react-hot-toast";
+
 import Encabezado from "../componentes/layout/Encabezado";
 import BuscadorPacientes from "../componentes/pacientes/BuscadorPacientes";
 import PacienteRow from "../componentes/pacientes/PacienteRow";
 import PacienteCard from "../componentes/pacientes/PacienteCard";
+import ModalConfirmacion from "../componentes/ModalConfirmacion";
+
 import { api } from "../lib/axios";
+import { create, remove } from "../services/pacientes";
+import { extraerMensajeError } from "../lib/errorHandler";
 import type { Paciente, EstadoPaciente } from "../types/paciente";
 
 const estados = [
@@ -14,7 +23,22 @@ const estados = [
 ] as const;
 
 type FiltroEstado = (typeof estados)[number]["valor"];
-type EstadoNuevoPaciente = Exclude<FiltroEstado, "Todos">;
+
+const pacienteSchema = z.object({
+  nombre: z.string().trim().min(1, "El nombre es obligatorio."),
+  apellido: z.string().trim().min(1, "El apellido es obligatorio."),
+  dni: z.string().trim().min(8, "El DNI debe tener al menos 8 dígitos."),
+  email: z
+    .string()
+    .trim()
+    .min(1, "El correo electrónico es obligatorio.")
+    .email("Ingresa un correo electrónico válido."),
+  telefono: z.string().trim().optional(),
+  fechaNacimiento: z.string().min(1, "La fecha de nacimiento es obligatoria."),
+  estado: z.enum(["activo", "inactivo", "en_espera"]),
+});
+
+type FormPacienteValues = z.infer<typeof pacienteSchema>;
 
 export default function PaginaPacientes() {
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
@@ -24,15 +48,28 @@ export default function PaginaPacientes() {
 
   const [busqueda, setBusqueda] = useState<string>("");
   const [estadoFiltro, setEstadoFiltro] = useState<FiltroEstado>("Todos");
-
   const [mostrarFormulario, setMostrarFormulario] = useState<boolean>(false);
 
-  const [nombre, setNombre] = useState<string>("");
-  const [apellido, setApellido] = useState<string>("");
-  const [email, setEmail] = useState<string>("");
-  const [estadoNuevo, setEstadoNuevo] = useState<EstadoNuevoPaciente>("activo");
+  const [idAEliminar, setIdAEliminar] = useState<string | null>(null);
+  const [eliminando, setEliminando] = useState<boolean>(false);
 
-  const [error, setError] = useState<string>("");
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<FormPacienteValues>({
+    resolver: zodResolver(pacienteSchema),
+    defaultValues: {
+      nombre: "",
+      apellido: "",
+      dni: "",
+      email: "",
+      telefono: "",
+      fechaNacimiento: "1995-01-01",
+      estado: "activo",
+    },
+  });
 
   const cargarPacientes = useCallback(async (): Promise<void> => {
     setCargando(true);
@@ -70,9 +107,95 @@ export default function PaginaPacientes() {
     void cargarPacientes();
   }, [cargarPacientes]);
 
+  const onSubmit = async (data: FormPacienteValues): Promise<void> => {
+    const emailExiste = pacientes.some(
+      (paciente) => paciente.email.toLowerCase() === data.email.toLowerCase(),
+    );
+
+    if (emailExiste) {
+      toast.error("Ya existe un paciente registrado con ese correo.");
+      return;
+    }
+
+    try {
+      // Body limpio sin campos inexistentes en la base de datos
+      const payload = {
+        nombre: data.nombre.trim(),
+        apellidoPaterno: data.apellido.trim(),
+        apellido_paterno: data.apellido.trim(),
+        dni: data.dni.trim(),
+        email: data.email.trim().toLowerCase(),
+        telefono: data.telefono ? data.telefono.trim() : null,
+        fechaNacimiento: new Date(data.fechaNacimiento).toISOString(),
+        fecha_nacimiento: new Date(data.fechaNacimiento).toISOString(),
+      };
+
+      const res = await create(payload as unknown as Omit<Paciente, "id">);
+
+      // Agregamos al estado local completando los campos que la UI necesita mostrar
+      const pacienteParaUI: Paciente = {
+        ...res.data,
+        apellido: data.apellido,
+        apellidoPaterno: data.apellido,
+        dni: data.dni,
+        email: data.email,
+        telefono: data.telefono || "",
+        fechaNacimiento: data.fechaNacimiento,
+        especialidadAsignada: "Sin asignar",
+        ultimaCita: "Sin citas",
+        estado: data.estado,
+      };
+
+      setPacientes((prev) => [...prev, pacienteParaUI]);
+      setTotalServidor((prev) => (prev === null ? null : prev + 1));
+
+      toast.success("Paciente registrado");
+      reset();
+      setMostrarFormulario(false);
+    } catch (err: unknown) {
+      toast.error(extraerMensajeError(err));
+    }
+  };
+
+  const handleAbrirModalEliminar = (id: string): void => {
+    setIdAEliminar(id);
+  };
+
+  const handleConfirmarEliminar = async (): Promise<void> => {
+    if (idAEliminar === null) return;
+
+    setEliminando(true);
+    try {
+      await remove(idAEliminar);
+
+      setPacientes((prev) =>
+        prev.filter((item) => String(item.id) !== idAEliminar),
+      );
+      setTotalServidor((prev) =>
+        prev === null ? null : Math.max(0, prev - 1),
+      );
+
+      toast.success("Paciente eliminado");
+      setIdAEliminar(null);
+    } catch (err: unknown) {
+      toast.error(extraerMensajeError(err));
+    } finally {
+      setEliminando(false);
+    }
+  };
+
+  const handleCambiarEstado = (id: string, estado: EstadoPaciente): void => {
+    setPacientes((prev) =>
+      prev.map((paciente) =>
+        String(paciente.id) === id ? { ...paciente, estado } : paciente,
+      ),
+    );
+  };
+
   const pacientesFiltrados = pacientes.filter((paciente) => {
+    const apellidoMostrar = paciente.apellido ?? paciente.apellidoPaterno ?? "";
     const nombreCompleto =
-      `${paciente.nombre} ${paciente.apellido}`.toLowerCase();
+      `${paciente.nombre} ${apellidoMostrar}`.toLowerCase();
 
     const coincideNombre = nombreCompleto.includes(
       busqueda.trim().toLowerCase(),
@@ -97,86 +220,6 @@ export default function PaginaPacientes() {
   const pacientesEnEspera = pacientes.filter(
     (paciente) => paciente.estado === "en_espera",
   ).length;
-
-  const handleAgregarPaciente = (
-    event: React.FormEvent<HTMLFormElement>,
-  ): void => {
-    event.preventDefault();
-    setError("");
-
-    const nombreLimpio = nombre.trim();
-    const apellidoLimpio = apellido.trim();
-    const emailLimpio = email.trim();
-
-    if (!nombreLimpio || !emailLimpio) {
-      setError("El nombre y el correo electrónico son obligatorios.");
-      return;
-    }
-
-    const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpio);
-
-    if (!emailValido) {
-      setError("Ingresa un correo electrónico válido.");
-      return;
-    }
-
-    const emailExiste = pacientes.some(
-      (paciente) => paciente.email.toLowerCase() === emailLimpio.toLowerCase(),
-    );
-
-    if (emailExiste) {
-      setError("Ya existe un paciente registrado con ese correo.");
-      return;
-    }
-
-    const nuevoPaciente: Paciente = {
-      id: crypto.randomUUID(),
-      nombre: nombreLimpio,
-      apellido: apellidoLimpio,
-      email: emailLimpio,
-      telefono: "",
-      especialidadAsignada: "Sin asignar",
-      ultimaCita: "Sin citas",
-      estado: estadoNuevo,
-    };
-
-    setPacientes((prev) => [...prev, nuevoPaciente]);
-    setTotalServidor((prev) => (prev === null ? null : prev + 1));
-
-    setNombre("");
-    setApellido("");
-    setEmail("");
-    setEstadoNuevo("activo");
-    setError("");
-    setMostrarFormulario(false);
-  };
-
-  const handleCambiarEstado = (id: string, estado: EstadoPaciente): void => {
-    setPacientes((prev) =>
-      prev.map((paciente) =>
-        paciente.id === id ? { ...paciente, estado } : paciente,
-      ),
-    );
-  };
-
-  const handleEliminarPaciente = (id: string): void => {
-    const paciente = pacientes.find((item) => item.id === id);
-
-    if (!paciente) {
-      return;
-    }
-
-    const confirmar = window.confirm(
-      `¿Estás seguro de que deseas eliminar a ${paciente.nombre} ${paciente.apellido}?`,
-    );
-
-    if (!confirmar) {
-      return;
-    }
-
-    setPacientes((prev) => prev.filter((item) => item.id !== id));
-    setTotalServidor((prev) => (prev === null ? null : Math.max(0, prev - 1)));
-  };
 
   const handleLimpiarFiltros = (): void => {
     setBusqueda("");
@@ -211,7 +254,7 @@ export default function PaginaPacientes() {
             disabled={cargando || errorCarga}
             onClick={() => {
               setMostrarFormulario((prev) => !prev);
-              setError("");
+              reset();
             }}
             className="rounded-xl bg-violet-600 px-5 py-3 font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -311,51 +354,97 @@ export default function PaginaPacientes() {
                 </p>
 
                 <form
-                  onSubmit={handleAgregarPaciente}
+                  onSubmit={handleSubmit(onSubmit)}
                   className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2"
                 >
                   <label className="text-sm font-medium text-slate-700">
                     Nombre *
                     <input
                       type="text"
-                      value={nombre}
-                      onChange={(event) => setNombre(event.target.value)}
+                      {...register("nombre")}
                       placeholder="Ej. María"
                       className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                     />
+                    {errors.nombre && (
+                      <p className="mt-1 text-xs text-rose-600">
+                        {errors.nombre.message}
+                      </p>
+                    )}
                   </label>
 
                   <label className="text-sm font-medium text-slate-700">
-                    Apellido
+                    Apellido *
                     <input
                       type="text"
-                      value={apellido}
-                      onChange={(event) => setApellido(event.target.value)}
+                      {...register("apellido")}
                       placeholder="Ej. García"
                       className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                     />
+                    {errors.apellido && (
+                      <p className="mt-1 text-xs text-rose-600">
+                        {errors.apellido.message}
+                      </p>
+                    )}
+                  </label>
+
+                  <label className="text-sm font-medium text-slate-700">
+                    DNI *
+                    <input
+                      type="text"
+                      {...register("dni")}
+                      placeholder="Ej. 74859612"
+                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                    />
+                    {errors.dni && (
+                      <p className="mt-1 text-xs text-rose-600">
+                        {errors.dni.message}
+                      </p>
+                    )}
                   </label>
 
                   <label className="text-sm font-medium text-slate-700">
                     Correo electrónico *
                     <input
                       type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
+                      {...register("email")}
                       placeholder="maria@correo.com"
+                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                    />
+                    {errors.email && (
+                      <p className="mt-1 text-xs text-rose-600">
+                        {errors.email.message}
+                      </p>
+                    )}
+                  </label>
+
+                  <label className="text-sm font-medium text-slate-700">
+                    Teléfono
+                    <input
+                      type="text"
+                      {...register("telefono")}
+                      placeholder="Ej. 987654321"
                       className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                     />
                   </label>
 
                   <label className="text-sm font-medium text-slate-700">
+                    Fecha de nacimiento *
+                    <input
+                      type="date"
+                      {...register("fechaNacimiento")}
+                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+                    />
+                    {errors.fechaNacimiento && (
+                      <p className="mt-1 text-xs text-rose-600">
+                        {errors.fechaNacimiento.message}
+                      </p>
+                    )}
+                  </label>
+
+                  <label className="text-sm font-medium text-slate-700 sm:col-span-2">
                     Estado inicial
                     <select
-                      value={estadoNuevo}
-                      onChange={(event) =>
-                        setEstadoNuevo(
-                          event.target.value as EstadoNuevoPaciente,
-                        )
-                      }
+                      {...register("estado")}
                       className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-violet-500"
                     >
                       <option value="activo">Activo</option>
@@ -364,25 +453,12 @@ export default function PaginaPacientes() {
                     </select>
                   </label>
 
-                  {error && (
-                    <p
-                      role="alert"
-                      className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700 sm:col-span-2"
-                    >
-                      {error}
-                    </p>
-                  )}
-
                   <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:justify-end">
                     <button
                       type="button"
                       onClick={() => {
                         setMostrarFormulario(false);
-                        setNombre("");
-                        setApellido("");
-                        setEmail("");
-                        setEstadoNuevo("activo");
-                        setError("");
+                        reset();
                       }}
                       className="rounded-xl border border-slate-200 px-5 py-3 font-medium text-slate-700 hover:bg-slate-50"
                     >
@@ -391,9 +467,10 @@ export default function PaginaPacientes() {
 
                     <button
                       type="submit"
-                      className="rounded-xl bg-violet-600 px-5 py-3 font-semibold text-white hover:bg-violet-700"
+                      disabled={isSubmitting}
+                      className="rounded-xl bg-violet-600 px-5 py-3 font-semibold text-white transition hover:bg-violet-700 disabled:opacity-50"
                     >
-                      Guardar paciente
+                      {isSubmitting ? "Guardando..." : "Guardar paciente"}
                     </button>
                   </div>
                 </form>
@@ -474,7 +551,7 @@ export default function PaginaPacientes() {
                         key={paciente.id}
                         paciente={paciente}
                         onCambiarEstado={handleCambiarEstado}
-                        onEliminar={handleEliminarPaciente}
+                        onEliminar={handleAbrirModalEliminar}
                       />
                     ))}
 
@@ -499,7 +576,7 @@ export default function PaginaPacientes() {
                   key={paciente.id}
                   paciente={paciente}
                   onCambiarEstado={handleCambiarEstado}
-                  onEliminar={handleEliminarPaciente}
+                  onEliminar={handleAbrirModalEliminar}
                 />
               ))}
 
@@ -517,6 +594,15 @@ export default function PaginaPacientes() {
           </>
         )}
       </main>
+
+      <ModalConfirmacion
+        isOpen={idAEliminar !== null}
+        titulo="¿Eliminar paciente?"
+        mensaje="Esta acción no se puede deshacer. ¿Seguro que deseas eliminar el registro?"
+        isLoading={eliminando}
+        onConfirm={() => void handleConfirmarEliminar()}
+        onClose={() => setIdAEliminar(null)}
+      />
     </div>
   );
 }

@@ -14,12 +14,14 @@ import {
 import { citaSchema } from "../schemas/citaSchema";
 import type { CitaFormData } from "../schemas/citaSchema";
 import { useMedicos } from "../hooks/useMedicos";
-import { create as crearCita } from "../services/citas";
+import { useCitasStore } from "../stores/citasStore";
 import { extraerMensajeError } from "../lib/errorHandler";
 
 export default function FormularioCita() {
   const navigate = useNavigate();
   const { medicos, cargando } = useMedicos();
+
+  const agregarCita = useCitasStore((s) => s.agregarCita);
 
   const [citaAgendada, setCitaAgendada] = useState<CitaFormData | null>(null);
 
@@ -44,16 +46,21 @@ export default function FormularioCita() {
 
   const onSubmit = async (data: CitaFormData): Promise<void> => {
     try {
-      await crearCita({
+      const exito = await agregarCita({
         pacienteId: 1, // o el ID correspondiente
+        medicoId: Number(data.medicoId),
         pacienteNombre: data.pacienteNombre,
         fecha: `${data.fecha}T${data.hora || "09:00"}:00Z`,
+        hora: data.hora || "09:00",
         motivo: data.motivo,
         estado: "PROGRAMADA",
+        urgencia: data.urgencia,
       });
 
-      toast.success("Cita agendada con éxito");
-      setCitaAgendada(data);
+      if (exito) {
+        toast.success("Cita agendada con éxito");
+        setCitaAgendada(data);
+      }
     } catch (err: unknown) {
       toast.error(extraerMensajeError(err));
     }

@@ -1,3 +1,5 @@
+// src/types/cita.ts
+
 export type EstadoCita = "PROGRAMADA" | "COMPLETADA" | "CANCELADA";
 
 export interface Cita {
@@ -7,13 +9,9 @@ export interface Cita {
   fecha: string;
   hora: string;
   estado: EstadoCita;
-  creacion?: string;
-  paciente?: {
-    nombre: string;
-    apellidoPaterno: string;
-  };
-  medico?: {
-    nombre: string;
-    apellidoPaterno: string;
-  };
+
+  // Campos opcionales que maneja tu UI/backend
+  pacienteNombre?: string;
+  motivo?: string;
+  urgencia?: string;
 }

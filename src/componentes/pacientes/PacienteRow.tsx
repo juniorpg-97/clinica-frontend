@@ -2,19 +2,18 @@ import { Link } from "react-router-dom";
 import { Eye } from "lucide-react";
 
 import type { Paciente, EstadoPaciente } from "../../types/paciente";
-
 import BadgeEstado from "./BadgeEstado";
 
 interface PacienteRowProps {
   paciente: Paciente;
-  onCambiarEstado: (id: string, estado: EstadoPaciente) => void;
-  onEliminar: (id: string) => void;
+  onCambiarEstado: (id: string | number, estado: EstadoPaciente) => void;
+  onAbrirModalEliminar: (id: string | number) => void;
 }
 
 export default function PacienteRow({
   paciente,
   onCambiarEstado,
-  onEliminar,
+  onAbrirModalEliminar,
 }: PacienteRowProps) {
   return (
     <tr className="border-b border-slate-100 transition hover:bg-slate-50">
@@ -22,7 +21,6 @@ export default function PacienteRow({
         <p className="font-semibold text-slate-900">
           {paciente.nombre} {paciente.apellido}
         </p>
-
         <p className="mt-1 text-sm text-slate-500">{paciente.email}</p>
       </td>
 
@@ -39,12 +37,12 @@ export default function PacienteRow({
       </td>
 
       <td className="px-6 py-4">
-        <BadgeEstado estado={paciente.estado} />
+        <BadgeEstado estado={paciente.estado ?? "activo"} />
       </td>
 
       <td className="px-6 py-4">
         <select
-          value={paciente.estado}
+          value={paciente.estado ?? "activo"}
           onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
             onCambiarEstado(paciente.id, event.target.value as EstadoPaciente)
           }
@@ -69,7 +67,7 @@ export default function PacienteRow({
 
           <button
             type="button"
-            onClick={() => onEliminar(paciente.id)}
+            onClick={() => onAbrirModalEliminar(paciente.id)}
             className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50"
           >
             Eliminar

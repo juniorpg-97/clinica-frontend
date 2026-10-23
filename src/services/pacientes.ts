@@ -1,12 +1,11 @@
-import { api } from "../lib/axios";
-import type { Paciente } from "../types/paciente";
+import { api } from "../lib/axios"; // O donde tengas configurado Axios
 
-export const create = (data: Omit<Paciente, "id">) =>
-  api.post<Paciente>("/pacientes", data);
-
-export const update = (
-  id: string | number,
-  data: Partial<Omit<Paciente, "id">>,
-) => api.put<Paciente>(`/pacientes/${id}`, data);
-
-export const remove = (id: string | number) => api.delete(`/pacientes/${id}`);
+export const pacientesService = {
+  getAll: async (query?: string) => {
+    const respuesta = await api.get("/pacientes", {
+      params: query ? { search: query } : {},
+    });
+    // Axios ya guarda todo en respuesta.data, así que devolvemos eso
+    return respuesta.data;
+  },
+};

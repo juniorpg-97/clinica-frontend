@@ -1,44 +1,81 @@
-interface BuscadorPacientesProps {
-  value: string;
-  onChange: (value: string) => void;
-}
+import { Search, Loader2 } from "lucide-react";
+import { useFiltrosStore } from "../../stores/filtrosStore";
+import { useDebounce } from "../../hooks/useDebounce";
+import { useApi } from "../../hooks/useApi";
+import { pacientesService } from "../../services/pacientes";
+import type { Paciente } from "../../types/paciente";
+import type { RespuestaPaginada } from "../../types/api";
 
-export default function BuscadorPacientes({
-  value,
-  onChange,
-}: BuscadorPacientesProps) {
+export function BuscadorPacientes() {
+  const queryPacientes = useFiltrosStore((state) => state.queryPacientes);
+  const setQueryPacientes = useFiltrosStore((state) => state.setQueryPacientes);
+  const resetFiltros = useFiltrosStore((state) => state.resetFiltros);
+
+  const queryDebounced = useDebounce(queryPacientes, 350);
+
+  // 👇 Le pasamos [queryDebounced] como dependencia para que se actualice
+  const {
+    data: respuesta,
+    cargando,
+    error,
+  } = useApi<RespuestaPaginada<Paciente>>(
+    () => pacientesService.getAll(queryDebounced),
+    [queryDebounced],
+  );
+
+  const pacientes = respuesta?.data || [];
+
+  // 👇 FILTRO LOCAL: Nos aseguramos de que la lista se filtre sí o sí
+  const pacientesFiltrados = pacientes.filter((p) =>
+    p.nombre.toLowerCase().includes(queryDebounced.toLowerCase().trim()),
+  );
+
   return (
-    <div className="w-full">
-      <label
-        htmlFor="buscar-paciente"
-        className="mb-2 block text-sm font-medium text-slate-700"
-      >
-        Buscar paciente
-      </label>
-
-      <div className="relative">
-        <svg
-          className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.8}
-          aria-hidden="true"
-        >
-          <circle cx={11} cy={11} r={7} />
-          <path d="m20 20-4-4" />
-        </svg>
-
+    <div className="w-full max-w-md">
+      <div className="relative flex items-center">
+        <Search className="absolute left-3 text-slate-400" size={18} />
         <input
-          id="buscar-paciente"
-          type="search"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder="Buscar por nombre o correo..."
-          className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+          type="text"
+          value={queryPacientes}
+          onChange={(e) => setQueryPacientes(e.target.value)}
+          placeholder="Buscar paciente por nombre..."
+          className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-10 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
         />
+        {cargando && (
+          <Loader2
+            className="absolute right-3 animate-spin text-blue-500"
+            size={18}
+          />
+        )}
       </div>
+
+      <button
+        onClick={resetFiltros}
+        className="mt-2 text-xs font-semibold text-rose-500 hover:text-rose-700"
+      >
+        Limpiar filtros
+      </button>
+
+      {error && <p className="mt-4 text-sm text-rose-500">{error}</p>}
+
+      {!cargando && (
+        <ul className="mt-4 space-y-2">
+          {/* 👇 Renderizamos los filtrados */}
+          {pacientesFiltrados.map((p) => (
+            <li
+              key={p.id}
+              className="rounded-lg border border-slate-100 p-3 text-sm"
+            >
+              {p.nombre}
+            </li>
+          ))}
+          {pacientesFiltrados.length === 0 && (
+            <p className="text-sm text-slate-500">
+              No se encontraron pacientes con ese nombre.
+            </p>
+          )}
+        </ul>
+      )}
     </div>
   );
 }

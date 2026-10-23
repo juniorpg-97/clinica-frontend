@@ -5,7 +5,7 @@ import { z } from "zod";
 import toast from "react-hot-toast";
 
 import Encabezado from "../componentes/layout/Encabezado";
-import BuscadorPacientes from "../componentes/pacientes/BuscadorPacientes";
+import { BuscadorPacientes } from "../componentes/pacientes/BuscadorPacientes";
 import PacienteRow from "../componentes/pacientes/PacienteRow";
 import PacienteCard from "../componentes/pacientes/PacienteCard";
 import ModalConfirmacion from "../componentes/ModalConfirmacion";
@@ -408,10 +408,7 @@ export default function PaginaPacientes() {
                   <label className="mb-2 block text-sm font-medium text-slate-700">
                     Buscar paciente
                   </label>
-                  <BuscadorPacientes
-                    value={queryPacientes}
-                    onChange={setQueryPacientes}
-                  />
+                  <BuscadorPacientes />
                 </div>
 
                 <div className="w-full lg:w-64">

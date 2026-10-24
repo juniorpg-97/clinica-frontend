@@ -1,10 +1,7 @@
 import { z } from "zod";
 
 export const citaSchema = z.object({
-  pacienteNombre: z
-    .string()
-    .trim()
-    .min(3, "El nombre debe tener al menos 3 caracteres"),
+  pacienteId: z.string().min(1, "Debes seleccionar un paciente"),
 
   medicoId: z.string().min(1, "Debes seleccionar un médico"),
 

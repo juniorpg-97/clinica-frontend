@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 
 interface FiltrosState {
   queryPacientes: string;
@@ -6,8 +7,15 @@ interface FiltrosState {
   resetFiltros: () => void;
 }
 
-export const useFiltrosStore = create<FiltrosState>((set) => ({
-  queryPacientes: "",
-  setQueryPacientes: (query) => set({ queryPacientes: query }),
-  resetFiltros: () => set({ queryPacientes: "" }),
-}));
+export const useFiltrosStore = create<FiltrosState>()(
+  devtools(
+    (set) => ({
+      queryPacientes: "",
+      setQueryPacientes: (query) =>
+        set({ queryPacientes: query }, false, "FiltrosStore/setQueryPacientes"),
+      resetFiltros: () =>
+        set({ queryPacientes: "" }, false, "FiltrosStore/resetFiltros"),
+    }),
+    { name: "FiltrosStore" },
+  ),
+);

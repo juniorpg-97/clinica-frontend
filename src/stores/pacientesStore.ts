@@ -1,19 +1,19 @@
-// src/stores/pacientesStore.ts
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import { api } from "../lib/axios";
+import { pacientesService } from "../services/pacientes";
 import { extraerMensajeError } from "../lib/errorHandler";
 import type { Paciente } from "../types/paciente";
+import type { CrearPacienteDTO, ActualizarPacienteDTO } from "../types/dtos";
 
 interface PacientesState {
   pacientes: Paciente[];
   cargando: boolean;
   error: string | null;
   cargar: (query?: string) => Promise<void>;
-  crear: (paciente: Omit<Paciente, "id">) => Promise<boolean>;
+  crear: (paciente: CrearPacienteDTO) => Promise<boolean>;
   actualizar: (
     id: string | number,
-    paciente: Partial<Paciente>,
+    paciente: ActualizarPacienteDTO,
   ) => Promise<boolean>;
   eliminar: (id: string | number) => Promise<boolean>;
 }
@@ -28,21 +28,9 @@ export const usePacientesStore = create<PacientesState>()(
       cargar: async (query) => {
         set({ cargando: true, error: null }, false, "PacientesStore/cargar");
         try {
-          const res = await api.get("/pacientes");
-          let pacientesData: Paciente[] = res.data.data;
-
-          if (query) {
-            const lowerQuery = query.toLowerCase();
-            pacientesData = pacientesData.filter(
-              (p) =>
-                p.nombre.toLowerCase().includes(lowerQuery) ||
-                p.apellidoPaterno.toLowerCase().includes(lowerQuery) ||
-                p.dni.includes(lowerQuery),
-            );
-          }
-
+          const data = await pacientesService.getAll(query);
           set(
-            { pacientes: pacientesData, cargando: false },
+            { pacientes: data, cargando: false },
             false,
             "PacientesStore/cargarExito",
           );
@@ -58,10 +46,10 @@ export const usePacientesStore = create<PacientesState>()(
       crear: async (paciente) => {
         set({ cargando: true, error: null }, false, "PacientesStore/crear");
         try {
-          const res = await api.post("/pacientes", paciente);
+          const nuevo = await pacientesService.create(paciente);
           set(
             (state) => ({
-              pacientes: [...state.pacientes, res.data.data],
+              pacientes: [...state.pacientes, nuevo],
               cargando: false,
             }),
             false,
@@ -85,11 +73,11 @@ export const usePacientesStore = create<PacientesState>()(
           "PacientesStore/actualizar",
         );
         try {
-          const res = await api.put(`/pacientes/${id}`, paciente);
+          const actualizado = await pacientesService.update(id, paciente);
           set(
             (state) => ({
               pacientes: state.pacientes.map((p) =>
-                p.id === id ? { ...p, ...res.data.data } : p,
+                p.id === id ? actualizado : p,
               ),
               cargando: false,
             }),
@@ -110,7 +98,7 @@ export const usePacientesStore = create<PacientesState>()(
       eliminar: async (id) => {
         set({ cargando: true, error: null }, false, "PacientesStore/eliminar");
         try {
-          await api.delete(`/pacientes/${id}`);
+          await pacientesService.delete(id);
           set(
             (state) => ({
               pacientes: state.pacientes.filter((p) => p.id !== id),

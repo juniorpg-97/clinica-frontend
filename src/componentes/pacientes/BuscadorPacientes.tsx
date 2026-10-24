@@ -4,7 +4,6 @@ import { useDebounce } from "../../hooks/useDebounce";
 import { useApi } from "../../hooks/useApi";
 import { pacientesService } from "../../services/pacientes";
 import type { Paciente } from "../../types/paciente";
-import type { RespuestaPaginada } from "../../types/api";
 
 export function BuscadorPacientes() {
   const queryPacientes = useFiltrosStore((state) => state.queryPacientes);
@@ -13,19 +12,12 @@ export function BuscadorPacientes() {
 
   const queryDebounced = useDebounce(queryPacientes, 350);
 
-  // 👇 Le pasamos [queryDebounced] como dependencia para que se actualice
-  const {
-    data: respuesta,
-    cargando,
-    error,
-  } = useApi<RespuestaPaginada<Paciente>>(
+  const { data, cargando, error } = useApi<Paciente[]>(
     () => pacientesService.getAll(queryDebounced),
     [queryDebounced],
   );
+  const pacientes = data || [];
 
-  const pacientes = respuesta?.data || [];
-
-  // 👇 FILTRO LOCAL: Nos aseguramos de que la lista se filtre sí o sí
   const pacientesFiltrados = pacientes.filter((p) =>
     p.nombre.toLowerCase().includes(queryDebounced.toLowerCase().trim()),
   );

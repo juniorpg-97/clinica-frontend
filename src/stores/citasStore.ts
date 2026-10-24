@@ -1,9 +1,9 @@
-// src/stores/citasStore.ts
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import { api } from "../lib/axios";
+import { citasService } from "../services/citas";
 import { extraerMensajeError } from "../lib/errorHandler";
 import type { Cita, EstadoCita } from "../types/cita";
+import type { CrearCitaDTO } from "../types/dtos";
 
 interface CitasState {
   citas: Cita[];
@@ -17,7 +17,7 @@ interface CitasState {
     id: string | number,
     estado: EstadoCita,
   ) => Promise<boolean>;
-  agregarCita: (cita: Omit<Cita, "id">) => Promise<boolean>;
+  agregarCita: (cita: CrearCitaDTO) => Promise<boolean>;
 }
 
 export const useCitasStore = create<CitasState>()(
@@ -31,9 +31,9 @@ export const useCitasStore = create<CitasState>()(
       cargarTodas: async () => {
         set({ cargando: true, error: null }, false, "CitasStore/cargarTodas");
         try {
-          const res = await api.get("/citas");
+          const data = await citasService.getAll();
           set(
-            { citas: res.data.data, cargando: false },
+            { citas: data, cargando: false },
             false,
             "CitasStore/cargarTodasExito",
           );
@@ -53,9 +53,10 @@ export const useCitasStore = create<CitasState>()(
           "CitasStore/cargarPorPaciente",
         );
         try {
-          const res = await api.get("/citas", { params: { pacienteId: id } });
+          const data = await citasService.getAll();
+          const filtradas = data.filter((c) => c.pacienteId === Number(id));
           set(
-            { citas: res.data.data, cargando: false },
+            { citas: filtradas, cargando: false },
             false,
             "CitasStore/cargarPorPacienteExito",
           );
@@ -84,15 +85,13 @@ export const useCitasStore = create<CitasState>()(
           "CitasStore/actualizarEstado",
         );
         try {
-          await api.patch(`/citas/${id}/estado`, { estado });
+          const actualizada = await citasService.updateEstado(id, estado);
           set(
             (state) => ({
-              citas: state.citas.map((c) =>
-                c.id === id ? { ...c, estado } : c,
-              ),
+              citas: state.citas.map((c) => (c.id === id ? actualizada : c)),
               citaSeleccionada:
                 state.citaSeleccionada?.id === id
-                  ? { ...state.citaSeleccionada, estado }
+                  ? actualizada
                   : state.citaSeleccionada,
               cargando: false,
             }),
@@ -113,12 +112,9 @@ export const useCitasStore = create<CitasState>()(
       agregarCita: async (cita) => {
         set({ cargando: true, error: null }, false, "CitasStore/agregarCita");
         try {
-          const res = await api.post("/citas", cita);
+          const nueva = await citasService.create(cita);
           set(
-            (state) => ({
-              citas: [...state.citas, res.data.data],
-              cargando: false,
-            }),
+            (state) => ({ citas: [...state.citas, nueva], cargando: false }),
             false,
             "CitasStore/agregarCitaExito",
           );

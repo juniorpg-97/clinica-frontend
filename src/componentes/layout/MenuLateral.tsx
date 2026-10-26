@@ -1,5 +1,7 @@
-import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Users, CalendarPlus } from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { LayoutDashboard, Users, CalendarPlus, LogOut } from "lucide-react";
+import toast from "react-hot-toast";
+import { useAuthStore } from "../../stores/authStore";
 
 const opcionesMenu = [
   {
@@ -23,6 +25,16 @@ const opcionesMenu = [
 ];
 
 export default function MenuLateral() {
+  const navigate = useNavigate();
+  const logout = useAuthStore((s) => s.logout);
+  const usuario = useAuthStore((s) => s.usuario);
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Sesión cerrada");
+    navigate("/login", { replace: true });
+  };
+
   return (
     <aside className="flex min-h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
       <div className="border-b border-slate-200 p-6">
@@ -67,8 +79,20 @@ export default function MenuLateral() {
       </nav>
 
       <div className="border-t border-slate-200 p-5">
-        <p className="text-sm font-semibold text-slate-800">Administrador</p>
-        <p className="mt-1 text-xs text-slate-500">Panel de gestión</p>
+        <p className="text-sm font-semibold text-slate-800">
+          {usuario?.nombre ?? "Administrador"}
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          {usuario?.rol ?? "Panel de gestión"}
+        </p>
+
+        <button
+          onClick={handleLogout}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100"
+        >
+          <LogOut size={16} />
+          Cerrar sesión
+        </button>
       </div>
     </aside>
   );

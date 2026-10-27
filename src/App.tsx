@@ -1,7 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 
 import Layout from "./componentes/layout/Layout";
-import ProtectedRoute from "./componentes/ProtectedRoute";
+import RutaProtegida from "./componentes/RutaProtegida";
 import PaginaLogin from "./pages/PaginaLogin";
 import PaginaDashboard from "./pages/PaginaDashboard";
 import PaginaPacientes from "./pages/PaginaPacientes";
@@ -9,6 +9,7 @@ import FormularioCita from "./pages/FormularioCita";
 import PaginaDetallePaciente from "./pages/PaginaDetallePaciente";
 import PaginaNotFound from "./pages/PaginaNotFound";
 import PaginaReportes from "./pages/PaginaReportes";
+import PaginaSinAcceso from "./pages/PaginaSinAcceso";
 
 export default function App() {
   return (
@@ -16,14 +17,24 @@ export default function App() {
       {/* 1) PÚBLICA: login SIN layout, SIN protección */}
       <Route path="/login" element={<PaginaLogin />} />
 
-      {/* 2) PRIVADAS: ProtectedRoute → Layout → páginas */}
-      <Route element={<ProtectedRoute />}>
+      {/* 2) PRIVADAS: RutaProtegida → Layout → páginas */}
+      <Route element={<RutaProtegida />}>
         <Route element={<Layout />}>
+          {/* Rutas generales: cualquier usuario autenticado */}
           <Route path="/" element={<PaginaDashboard />} />
           <Route path="/pacientes" element={<PaginaPacientes />} />
           <Route path="/pacientes/:id" element={<PaginaDetallePaciente />} />
           <Route path="/citas/nueva" element={<FormularioCita />} />
-          <Route path="/reportes" element={<PaginaReportes />} />
+
+          {/* Ruta para el mensaje de acceso denegado */}
+          <Route path="/sin-acceso" element={<PaginaSinAcceso />} />
+
+          {/* Rutas con Roles Específicos (Doble protección) */}
+          <Route
+            element={<RutaProtegida rolesPermitidos={["GERENCIA", "ADMIN"]} />}
+          >
+            <Route path="/reportes" element={<PaginaReportes />} />
+          </Route>
         </Route>
       </Route>
 

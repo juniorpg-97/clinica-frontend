@@ -12,125 +12,71 @@ import {
 } from "lucide-react";
 
 import { api } from "../lib/axios";
-import { updateEstado, type Cita, type EstadoCita } from "../services/citas";
-import { extraerMensajeError } from "../lib/errorHandler";
+import { usePacientesStore } from "../stores/pacientesStore";
+import { useCitasStore } from "../stores/citasStore";
 import type { Metrica } from "../types";
+import type { EstadoCita } from "../types/cita";
 import MetricCard from "../componentes/MetricCard";
 import StatusBadge from "../componentes/StatusBadge";
 import Encabezado from "../componentes/layout/Encabezado";
 
 export default function PaginaDashboard() {
-  const [totalPacientes, setTotalPacientes] = useState<number | null>(null);
-  const [totalMedicos, setTotalMedicos] = useState<number | null>(null);
-  const [citasProgramadas, setCitasProgramadas] = useState<number | null>(null);
-  const [citasCompletadas, setCitasCompletadas] = useState<number | null>(null);
+  // --- STORES DE ZUSTAND ---
+  const pacientes = usePacientesStore((s) => s.pacientes);
+  const cargarPacientes = usePacientesStore((s) => s.cargar);
+  const cargandoPacientes = usePacientesStore((s) => s.cargando);
 
-  const [citas, setCitas] = useState<Cita[]>([]);
+  const citas = useCitasStore((s) => s.citas);
+  const cargarTodasCitas = useCitasStore((s) => s.cargarTodas);
+  const actualizarEstado = useCitasStore((s) => s.actualizarEstado);
+  const cargandoCitas = useCitasStore((s) => s.cargando);
+
+  // --- ESTADO LOCAL (Solo UI) ---
   const [mantenimiento, setMantenimiento] = useState<boolean>(false);
-  const [cargando, setCargando] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [intento, setIntento] = useState<number>(0);
+  const [totalMedicos, setTotalMedicos] = useState<number | null>(null);
+  const [cargandoMedicos, setCargandoMedicos] = useState<boolean>(true);
 
+  // --- EFECTOS ---
   useEffect(() => {
-    let activo = true;
+    void cargarPacientes();
+    void cargarTodasCitas();
 
-    setCargando(true);
-    setError(null);
-
-    async function cargarMetricas() {
+    async function cargarMedicos() {
       try {
-        const [
-          pacientesRes,
-          medicosRes,
-          programadasRes,
-          completadasRes,
-          todasCitasRes,
-        ] = await Promise.all([
-          api.get("/pacientes"),
-          api.get("/medicos"),
-          api.get("/citas", { params: { estado: "Programada" } }),
-          api.get("/citas", { params: { estado: "Completada" } }),
-          api.get("/citas"),
-        ]);
-
-        if (!activo) return;
-
-        setTotalPacientes(
-          Array.isArray(pacientesRes.data)
-            ? pacientesRes.data.length
-            : Array.isArray(pacientesRes.data.data)
-              ? pacientesRes.data.data.length
-              : pacientesRes.data.total,
-        );
-
-        setTotalMedicos(
-          Array.isArray(medicosRes.data)
-            ? medicosRes.data.length
-            : medicosRes.data.total,
-        );
-
-        setCitasProgramadas(
-          Array.isArray(programadasRes.data)
-            ? programadasRes.data.length
-            : programadasRes.data.total,
-        );
-
-        setCitasCompletadas(
-          Array.isArray(completadasRes.data)
-            ? completadasRes.data.length
-            : completadasRes.data.total,
-        );
-
-        const listadoCitas = Array.isArray(todasCitasRes.data)
-          ? todasCitasRes.data
-          : Array.isArray(todasCitasRes.data.data)
-            ? todasCitasRes.data.data
-            : [];
-        setCitas(listadoCitas as Cita[]);
-      } catch (err: unknown) {
-        if (!activo) return;
-        console.error("Error al cargar las métricas del Dashboard:", err);
-        setError(
-          "No se pudieron cargar las métricas. Comprueba que el backend esté funcionando e inténtalo nuevamente.",
-        );
+        const res = await api.get("/medicos");
+        const datos = Array.isArray(res.data) ? res.data : res.data?.data;
+        setTotalMedicos(Array.isArray(datos) ? datos.length : 0);
+      } catch (err) {
+        console.error("Error al cargar médicos", err);
       } finally {
-        if (activo) {
-          setCargando(false);
-        }
+        setCargandoMedicos(false);
       }
     }
 
-    void cargarMetricas();
+    void cargarMedicos();
+  }, [cargarPacientes, cargarTodasCitas]);
 
-    return () => {
-      activo = false;
-    };
-  }, [intento]);
+  const cargando = cargandoPacientes || cargandoCitas || cargandoMedicos;
 
-  // Entregable 3: Actualización optimista de citas
+  // --- DATOS DERIVADOS ---
+  const totalPacientes = pacientes.length;
+  const citasProgramadas = citas.filter(
+    (c) => c.estado === "PROGRAMADA",
+  ).length;
+  const citasCompletadas = citas.filter(
+    (c) => c.estado === "COMPLETADA",
+  ).length;
+
+  // --- ACCIONES ---
   const handleCambiarEstadoOptimista = async (
-    id: Cita["id"],
+    id: number | string,
     nuevoEstado: EstadoCita,
   ): Promise<void> => {
-    // 1. Guardar copia previa del estado para rollback
-    const copiaPrevia = [...citas];
-
-    // 2. Reflejar cambio inmediatamente en pantalla
-    setCitas((prev) =>
-      prev.map((c) =>
-        String(c.id) === String(id) ? { ...c, estado: nuevoEstado } : c,
-      ),
-    );
-
-    try {
-      // 3. Petición a la API
-      await updateEstado(id, nuevoEstado);
+    const exito = await actualizarEstado(id, nuevoEstado);
+    if (exito) {
       toast.success("Estado de cita actualizado");
-    } catch (err: unknown) {
-      // 4. Fallo: revertir al snapshot y emitir toasts requeridos
-      setCitas(copiaPrevia);
-      toast.error(extraerMensajeError(err));
-      toast.error("Cambio revertido");
+    } else {
+      toast.error("No se pudo actualizar el estado");
     }
   };
 
@@ -138,7 +84,7 @@ export default function PaginaDashboard() {
     {
       id: "pacientes",
       titulo: "Pacientes",
-      valor: totalPacientes ?? (cargando ? "Cargando..." : "—"),
+      valor: totalPacientes,
       descripcion: "Pacientes registrados",
       tendencia: "positiva",
       icono: "👥",
@@ -154,7 +100,7 @@ export default function PaginaDashboard() {
     {
       id: "citas-programadas",
       titulo: "Citas Programadas",
-      valor: citasProgramadas ?? (cargando ? "Cargando..." : "—"),
+      valor: citasProgramadas,
       descripcion: "Citas con estado programado",
       tendencia: "neutra",
       icono: "📅",
@@ -162,7 +108,7 @@ export default function PaginaDashboard() {
     {
       id: "citas-completadas",
       titulo: "Completadas Hoy",
-      valor: citasCompletadas ?? (cargando ? "Cargando..." : "—"),
+      valor: citasCompletadas,
       descripcion: "Citas con estado completado",
       tendencia: "positiva",
       icono: "📋",
@@ -219,22 +165,6 @@ export default function PaginaDashboard() {
               </Link>
             </div>
           </div>
-
-          {error && (
-            <div
-              role="alert"
-              className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-red-800"
-            >
-              <p className="text-sm">{error}</p>
-              <button
-                type="button"
-                onClick={() => setIntento((actual) => actual + 1)}
-                className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
-              >
-                Reintentar
-              </button>
-            </div>
-          )}
 
           {cargando && (
             <p className="mb-4 text-sm text-slate-500" role="status">
@@ -342,7 +272,7 @@ export default function PaginaDashboard() {
 
             <div className="mt-6 flex items-center gap-4">
               <span className="min-w-16 text-center text-3xl font-bold text-slate-900">
-                {totalPacientes ?? (cargando ? "Cargando..." : "—")}
+                {totalPacientes}
               </span>
             </div>
 

@@ -1,23 +1,31 @@
 import axios from "axios";
+import { useAuthStore } from "../stores/authStore";
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   timeout: 8000,
 });
 
-// Interceptor de request: agrega el token si existe
+// Request: adjunta el token desde el store (fuente de verdad).
+// Fuera de React → getState() en lugar del hook.
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token = useAuthStore.getState().token;
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Interceptor de response: si el backend responde 401, la sesión ya no es válida
+// Response: 401 → limpia sesión y redirige a /login.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      window.location.href = "/login";
+      useAuthStore.getState().logout();
+
+      // Evita recargar si ya estamos en /login (ej. credenciales incorrectas
+      // en el propio formulario → el catch del componente muestra el toast).
+      if (window.location.pathname !== "/login") {
+        window.location.replace("/login");
+      }
     }
     return Promise.reject(error);
   },

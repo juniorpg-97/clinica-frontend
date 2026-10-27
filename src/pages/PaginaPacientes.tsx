@@ -1,17 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import toast from "react-hot-toast";
 
 import Encabezado from "../componentes/layout/Encabezado";
-import BuscadorPacientes from "../componentes/pacientes/BuscadorPacientes";
+import { BuscadorPacientes } from "../componentes/pacientes/BuscadorPacientes";
 import PacienteRow from "../componentes/pacientes/PacienteRow";
 import PacienteCard from "../componentes/pacientes/PacienteCard";
 import ModalConfirmacion from "../componentes/ModalConfirmacion";
 
-import { api } from "../lib/axios";
-import { create, remove } from "../services/pacientes";
+import { usePacientesStore } from "../stores/pacientesStore";
+import { useFiltrosStore } from "../stores/filtrosStore";
 import { extraerMensajeError } from "../lib/errorHandler";
 import type { Paciente, EstadoPaciente } from "../types/paciente";
 
@@ -31,8 +31,8 @@ const pacienteSchema = z.object({
   email: z
     .string()
     .trim()
-    .min(1, "El correo electrónico es obligatorio.")
-    .email("Ingresa un correo electrónico válido."),
+    .min(1, "El correo es obligatorio.")
+    .email("Ingresa un correo válido."),
   telefono: z.string().trim().optional(),
   fechaNacimiento: z.string().min(1, "La fecha de nacimiento es obligatoria."),
   estado: z.enum(["activo", "inactivo", "en_espera"]),
@@ -41,16 +41,22 @@ const pacienteSchema = z.object({
 type FormPacienteValues = z.infer<typeof pacienteSchema>;
 
 export default function PaginaPacientes() {
-  const [pacientes, setPacientes] = useState<Paciente[]>([]);
-  const [totalServidor, setTotalServidor] = useState<number | null>(null);
-  const [cargando, setCargando] = useState<boolean>(true);
-  const [errorCarga, setErrorCarga] = useState<boolean>(false);
+  // --- STORES ---
+  const pacientes = usePacientesStore((s) => s.pacientes);
+  const cargando = usePacientesStore((s) => s.cargando);
+  const error = usePacientesStore((s) => s.error);
+  const cargar = usePacientesStore((s) => s.cargar);
+  const crear = usePacientesStore((s) => s.crear);
+  const eliminar = usePacientesStore((s) => s.eliminar);
+  const actualizar = usePacientesStore((s) => s.actualizar);
 
-  const [busqueda, setBusqueda] = useState<string>("");
+  const queryPacientes = useFiltrosStore((s) => s.queryPacientes);
+  const setQueryPacientes = useFiltrosStore((s) => s.setQueryPacientes);
+
+  // --- ESTADO LOCAL (Solo UI) ---
   const [estadoFiltro, setEstadoFiltro] = useState<FiltroEstado>("Todos");
   const [mostrarFormulario, setMostrarFormulario] = useState<boolean>(false);
-
-  const [idAEliminar, setIdAEliminar] = useState<string | null>(null);
+  const [idAEliminar, setIdAEliminar] = useState<string | number | null>(null);
   const [eliminando, setEliminando] = useState<boolean>(false);
 
   const {
@@ -71,41 +77,10 @@ export default function PaginaPacientes() {
     },
   });
 
-  const cargarPacientes = useCallback(async (): Promise<void> => {
-    setCargando(true);
-    setErrorCarga(false);
-
-    try {
-      const res = await api.get("/pacientes");
-
-      const datos: unknown = Array.isArray(res.data)
-        ? res.data
-        : res.data?.data;
-
-      if (!Array.isArray(datos)) {
-        throw new Error(
-          "La respuesta del servidor no contiene una lista de pacientes.",
-        );
-      }
-
-      setPacientes(datos as Paciente[]);
-
-      const total: unknown = Array.isArray(res.data)
-        ? datos.length
-        : res.data?.total;
-
-      setTotalServidor(typeof total === "number" ? total : datos.length);
-    } catch (err: unknown) {
-      console.error("Error al cargar pacientes:", err);
-      setErrorCarga(true);
-    } finally {
-      setCargando(false);
-    }
-  }, []);
-
+  // Cargar pacientes al montar el componente
   useEffect(() => {
-    void cargarPacientes();
-  }, [cargarPacientes]);
+    void cargar();
+  }, [cargar]);
 
   const onSubmit = async (data: FormPacienteValues): Promise<void> => {
     const emailExiste = pacientes.some(
@@ -118,47 +93,25 @@ export default function PaginaPacientes() {
     }
 
     try {
-      // Body limpio sin campos inexistentes en la base de datos
       const payload = {
         nombre: data.nombre.trim(),
         apellidoPaterno: data.apellido.trim(),
-        apellido_paterno: data.apellido.trim(),
         dni: data.dni.trim(),
         email: data.email.trim().toLowerCase(),
         telefono: data.telefono ? data.telefono.trim() : null,
         fechaNacimiento: new Date(data.fechaNacimiento).toISOString(),
-        fecha_nacimiento: new Date(data.fechaNacimiento).toISOString(),
       };
 
-      const res = await create(payload as unknown as Omit<Paciente, "id">);
+      const exito = await crear(payload as unknown as Omit<Paciente, "id">);
 
-      // Agregamos al estado local completando los campos que la UI necesita mostrar
-      const pacienteParaUI: Paciente = {
-        ...res.data,
-        apellido: data.apellido,
-        apellidoPaterno: data.apellido,
-        dni: data.dni,
-        email: data.email,
-        telefono: data.telefono || "",
-        fechaNacimiento: data.fechaNacimiento,
-        especialidadAsignada: "Sin asignar",
-        ultimaCita: "Sin citas",
-        estado: data.estado,
-      };
-
-      setPacientes((prev) => [...prev, pacienteParaUI]);
-      setTotalServidor((prev) => (prev === null ? null : prev + 1));
-
-      toast.success("Paciente registrado");
-      reset();
-      setMostrarFormulario(false);
+      if (exito) {
+        toast.success("Paciente registrado");
+        reset();
+        setMostrarFormulario(false);
+      }
     } catch (err: unknown) {
       toast.error(extraerMensajeError(err));
     }
-  };
-
-  const handleAbrirModalEliminar = (id: string): void => {
-    setIdAEliminar(id);
   };
 
   const handleConfirmarEliminar = async (): Promise<void> => {
@@ -166,17 +119,11 @@ export default function PaginaPacientes() {
 
     setEliminando(true);
     try {
-      await remove(idAEliminar);
-
-      setPacientes((prev) =>
-        prev.filter((item) => String(item.id) !== idAEliminar),
-      );
-      setTotalServidor((prev) =>
-        prev === null ? null : Math.max(0, prev - 1),
-      );
-
-      toast.success("Paciente eliminado");
-      setIdAEliminar(null);
+      const exito = await eliminar(idAEliminar);
+      if (exito) {
+        toast.success("Paciente eliminado");
+        setIdAEliminar(null);
+      }
     } catch (err: unknown) {
       toast.error(extraerMensajeError(err));
     } finally {
@@ -184,45 +131,39 @@ export default function PaginaPacientes() {
     }
   };
 
-  const handleCambiarEstado = (id: string, estado: EstadoPaciente): void => {
-    setPacientes((prev) =>
-      prev.map((paciente) =>
-        String(paciente.id) === id ? { ...paciente, estado } : paciente,
-      ),
-    );
+  const handleCambiarEstado = (
+    id: string | number,
+    estado: EstadoPaciente,
+  ): void => {
+    void actualizar(id, { estado });
   };
 
+  // Filtrado local
   const pacientesFiltrados = pacientes.filter((paciente) => {
     const apellidoMostrar = paciente.apellido ?? paciente.apellidoPaterno ?? "";
     const nombreCompleto =
       `${paciente.nombre} ${apellidoMostrar}`.toLowerCase();
-
     const coincideNombre = nombreCompleto.includes(
-      busqueda.trim().toLowerCase(),
+      queryPacientes.trim().toLowerCase(),
     );
-
     const coincideEstado =
       estadoFiltro === "Todos" || paciente.estado === estadoFiltro;
-
     return coincideNombre && coincideEstado;
   });
 
   const totalPacientes = pacientes.length;
-
   const pacientesActivos = pacientes.filter(
-    (paciente) => paciente.estado === "activo",
+    (p) => p.estado === "activo",
   ).length;
-
   const pacientesInactivos = pacientes.filter(
-    (paciente) => paciente.estado === "inactivo",
+    (p) => p.estado === "inactivo",
   ).length;
-
   const pacientesEnEspera = pacientes.filter(
-    (paciente) => paciente.estado === "en_espera",
+    (p) => p.estado === "en_espera",
   ).length;
 
   const handleLimpiarFiltros = (): void => {
-    setBusqueda("");
+    setQueryPacientes("");
     setEstadoFiltro("Todos");
   };
 
@@ -239,11 +180,9 @@ export default function PaginaPacientes() {
             <p className="text-sm font-medium text-violet-600">
               Gestión de pacientes
             </p>
-
             <h1 className="mt-1 text-3xl font-bold text-slate-900">
               Pacientes
             </h1>
-
             <p className="mt-2 text-sm text-slate-500">
               Administra los registros y el estado de tus pacientes.
             </p>
@@ -251,7 +190,7 @@ export default function PaginaPacientes() {
 
           <button
             type="button"
-            disabled={cargando || errorCarga}
+            disabled={cargando || !!error}
             onClick={() => {
               setMostrarFormulario((prev) => !prev);
               reset();
@@ -268,18 +207,13 @@ export default function PaginaPacientes() {
             className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm"
           >
             <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" />
-
             <p className="mt-4 font-medium text-slate-700">
               Cargando pacientes...
-            </p>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Estamos consultando los registros del servidor.
             </p>
           </section>
         )}
 
-        {errorCarga && !cargando && (
+        {error && !cargando && (
           <section
             role="alert"
             className="rounded-2xl border border-rose-200 bg-white p-8 text-center shadow-sm"
@@ -287,14 +221,10 @@ export default function PaginaPacientes() {
             <h2 className="text-lg font-bold text-rose-700">
               No se pudieron cargar los pacientes
             </h2>
-
-            <p className="mt-2 text-sm text-slate-600">
-              Verifica que el backend esté funcionando y vuelve a intentarlo.
-            </p>
-
+            <p className="mt-2 text-sm text-slate-600">{error}</p>
             <button
               type="button"
-              onClick={() => void cargarPacientes()}
+              onClick={() => void cargar()}
               className="mt-5 rounded-xl bg-violet-600 px-5 py-3 font-semibold text-white transition hover:bg-violet-700"
             >
               Reintentar
@@ -302,13 +232,13 @@ export default function PaginaPacientes() {
           </section>
         )}
 
-        {!cargando && !errorCarga && (
+        {!cargando && !error && (
           <>
             <p className="text-sm text-slate-600">
               <span className="font-semibold text-slate-900">
-                {totalServidor ?? totalPacientes}
+                {totalPacientes}
               </span>{" "}
-              {(totalServidor ?? totalPacientes) === 1
+              {totalPacientes === 1
                 ? "paciente registrado"
                 : "pacientes registrados"}
             </p>
@@ -320,21 +250,18 @@ export default function PaginaPacientes() {
                   {totalPacientes}
                 </p>
               </div>
-
               <div className="rounded-2xl border border-slate-200 bg-white p-5">
                 <p className="text-sm text-slate-500">Pacientes activos</p>
                 <p className="mt-2 text-3xl font-bold text-emerald-600">
                   {pacientesActivos}
                 </p>
               </div>
-
               <div className="rounded-2xl border border-slate-200 bg-white p-5">
                 <p className="text-sm text-slate-500">Pacientes inactivos</p>
                 <p className="mt-2 text-3xl font-bold text-rose-600">
                   {pacientesInactivos}
                 </p>
               </div>
-
               <div className="rounded-2xl border border-slate-200 bg-white p-5">
                 <p className="text-sm text-slate-500">En espera</p>
                 <p className="mt-2 text-3xl font-bold text-amber-600">
@@ -348,7 +275,6 @@ export default function PaginaPacientes() {
                 <h2 className="text-xl font-bold text-slate-900">
                   Registrar paciente
                 </h2>
-
                 <p className="mt-1 text-sm text-slate-500">
                   Completa los datos para añadir un nuevo registro.
                 </p>
@@ -464,7 +390,6 @@ export default function PaginaPacientes() {
                     >
                       Cancelar
                     </button>
-
                     <button
                       type="submit"
                       disabled={isSubmitting}
@@ -483,8 +408,7 @@ export default function PaginaPacientes() {
                   <label className="mb-2 block text-sm font-medium text-slate-700">
                     Buscar paciente
                   </label>
-
-                  <BuscadorPacientes value={busqueda} onChange={setBusqueda} />
+                  <BuscadorPacientes />
                 </div>
 
                 <div className="w-full lg:w-64">
@@ -494,7 +418,6 @@ export default function PaginaPacientes() {
                   >
                     Filtrar por estado
                   </label>
-
                   <select
                     id="filtro-estado"
                     value={estadoFiltro}
@@ -544,17 +467,15 @@ export default function PaginaPacientes() {
                       <th className="px-6 py-4">Acciones</th>
                     </tr>
                   </thead>
-
                   <tbody>
                     {pacientesFiltrados.map((paciente) => (
                       <PacienteRow
                         key={paciente.id}
                         paciente={paciente}
                         onCambiarEstado={handleCambiarEstado}
-                        onEliminar={handleAbrirModalEliminar}
+                        onAbrirModalEliminar={setIdAEliminar}
                       />
                     ))}
-
                     {pacientesFiltrados.length === 0 && (
                       <tr>
                         <td
@@ -576,10 +497,9 @@ export default function PaginaPacientes() {
                   key={paciente.id}
                   paciente={paciente}
                   onCambiarEstado={handleCambiarEstado}
-                  onEliminar={handleAbrirModalEliminar}
+                  onAbrirModalEliminar={setIdAEliminar}
                 />
               ))}
-
               {pacientesFiltrados.length === 0 && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">
                   No se encontraron pacientes con esos filtros.
@@ -588,8 +508,8 @@ export default function PaginaPacientes() {
             </section>
 
             <p className="text-center text-sm text-slate-500">
-              Mostrando {pacientesFiltrados.length} de{" "}
-              {totalServidor ?? totalPacientes} pacientes
+              Mostrando {pacientesFiltrados.length} de {totalPacientes}{" "}
+              pacientes
             </p>
           </>
         )}

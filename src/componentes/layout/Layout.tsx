@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Link, Outlet, useNavigate } from "react-router-dom";
 import MenuLateral from "./MenuLateral";
 import { useAuthStore } from "../../stores/authStore";
 
@@ -23,14 +23,20 @@ export default function Layout() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-slate-900">
+            {/* 👇 Nombre del usuario como link a /perfil */}
+            <Link
+              to="/perfil"
+              className="text-right hidden sm:block group"
+              title="Editar mi perfil"
+            >
+              <p className="text-sm font-bold text-slate-900 transition-colors group-hover:text-emerald-600">
                 {usuario?.nombre}
               </p>
               <p className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block">
                 {usuario?.rol}
               </p>
-            </div>
+            </Link>
+
             <button
               onClick={handleLogout}
               className="px-4 py-2 text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"

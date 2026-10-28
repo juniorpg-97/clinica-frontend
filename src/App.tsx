@@ -10,6 +10,7 @@ import PaginaDetallePaciente from "./pages/PaginaDetallePaciente";
 import PaginaNotFound from "./pages/PaginaNotFound";
 import PaginaReportes from "./pages/PaginaReportes";
 import PaginaSinAcceso from "./pages/PaginaSinAcceso";
+import PaginaPerfil from "./pages/PaginaPerfil";
 
 export default function App() {
   return (
@@ -25,6 +26,9 @@ export default function App() {
           <Route path="/pacientes" element={<PaginaPacientes />} />
           <Route path="/pacientes/:id" element={<PaginaDetallePaciente />} />
           <Route path="/citas/nueva" element={<FormularioCita />} />
+
+          {/* 👇 NUEVA RUTA DE PERFIL */}
+          <Route path="/perfil" element={<PaginaPerfil />} />
 
           {/* Ruta para el mensaje de acceso denegado */}
           <Route path="/sin-acceso" element={<PaginaSinAcceso />} />

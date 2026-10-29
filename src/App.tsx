@@ -11,6 +11,7 @@ import PaginaNotFound from "./pages/PaginaNotFound";
 import PaginaReportes from "./pages/PaginaReportes";
 import PaginaSinAcceso from "./pages/PaginaSinAcceso";
 import PaginaPerfil from "./pages/PaginaPerfil";
+import PaginaHistorialCitas from "./pages/PaginaHistorialCitas";
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/pacientes" element={<PaginaPacientes />} />
           <Route path="/pacientes/:id" element={<PaginaDetallePaciente />} />
           <Route path="/citas/nueva" element={<FormularioCita />} />
+          <Route path="/historial" element={<PaginaHistorialCitas />} />
 
           {/* 👇 NUEVA RUTA DE PERFIL */}
           <Route path="/perfil" element={<PaginaPerfil />} />

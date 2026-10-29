@@ -183,7 +183,7 @@ export default function PaginaDashboard() {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-slate-900">
-              Gestión de Citas (UI Optimista)
+              Gestión de Citas
             </h2>
             <span className="text-xs text-slate-500">
               Actualización instantánea con fallback

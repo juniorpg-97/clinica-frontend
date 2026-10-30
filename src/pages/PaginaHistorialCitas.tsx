@@ -1,4 +1,3 @@
-// src/pages/PaginaHistorialCitas.tsx
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { citasService } from "../services/citas";
@@ -7,8 +6,9 @@ import type { Cita } from "../types/cita";
 import { SkeletonListaCitas } from "../componentes/citas/SkeletonCita";
 import { ControlesPaginacion } from "../componentes/citas/ControlesPaginacion";
 import { formatearFecha, formatearHora } from "../lib/formato";
+// 👇 NUEVO: Import del EstadoVacio
+import { EstadoVacio } from "../componentes/ui/EstadoVacio";
 
-// Tipos exactos que pide el entregable para la UI
 type EstadoCitaFiltro = "Todos" | "Programada" | "Completada" | "Cancelada";
 const ESTADOS_FILTRO: EstadoCitaFiltro[] = [
   "Todos",
@@ -18,19 +18,16 @@ const ESTADOS_FILTRO: EstadoCitaFiltro[] = [
 ];
 
 export default function PaginaHistorialCitas() {
-  // 1. useSearchParams: La URL es la fuente de verdad
   const [searchParams, setSearchParams] = useSearchParams();
 
   const pagina = Number(searchParams.get("pagina")) || 1;
   const estado = (searchParams.get("estado") as EstadoCitaFiltro) || "Todos";
 
-  // Estado local para los datos
   const [citas, setCitas] = useState<Cita[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [cargando, setCargando] = useState(true);
 
-  // 2. Carga de datos con AbortController
   useEffect(() => {
     const controller = new AbortController();
 
@@ -47,7 +44,6 @@ export default function PaginaHistorialCitas() {
             signal: controller.signal,
           });
 
-        // 👇 FILTRO DEL LADO DEL FRONTEND (solución temporal)
         const datosFiltrados =
           estado === "Todos"
             ? respuesta.data
@@ -55,15 +51,12 @@ export default function PaginaHistorialCitas() {
 
         setCitas(datosFiltrados);
         setTotal(datosFiltrados.length);
-        // Calculamos totalPaginas basado en los datos filtrados
-        setTotalPaginas(Math.ceil(datosFiltrados.length / 10));
+        setTotalPaginas(Math.ceil(datosFiltrados.length / 10) || 1);
       } catch (error: any) {
-        // Ignoramos el error si fue cancelado intencionalmente por el AbortController
         if (error.name !== "CanceledError" && error.name !== "AbortError") {
           console.error("Error al cargar citas:", error);
         }
       } finally {
-        // Solo quitamos el loading si la petición no fue abortada
         if (!controller.signal.aborted) {
           setCargando(false);
         }
@@ -71,26 +64,20 @@ export default function PaginaHistorialCitas() {
     };
 
     cargarDatos();
-
-    // Cleanup: cancela la petición anterior si cambia pagina/estado o se desmonta
     return () => controller.abort();
   }, [pagina, estado]);
 
-  // 3. Cambiar estado: reset a página 1 en UNA sola llamada
   const handleCambiarEstado = (nuevoEstado: EstadoCitaFiltro) => {
     setSearchParams({ pagina: "1", estado: nuevoEstado });
   };
 
   const handleAnterior = () => {
-    if (pagina > 1) {
-      setSearchParams({ pagina: String(pagina - 1), estado });
-    }
+    if (pagina > 1) setSearchParams({ pagina: String(pagina - 1), estado });
   };
 
   const handleSiguiente = () => {
-    if (pagina < totalPaginas) {
+    if (pagina < totalPaginas)
       setSearchParams({ pagina: String(pagina + 1), estado });
-    }
   };
 
   return (
@@ -99,7 +86,6 @@ export default function PaginaHistorialCitas() {
         Historial de Citas
       </h1>
 
-      {/* Filtros de estado */}
       <div className="flex gap-2 mb-6 flex-wrap">
         {ESTADOS_FILTRO.map((e) => (
           <button
@@ -116,18 +102,22 @@ export default function PaginaHistorialCitas() {
         ))}
       </div>
 
-      {/* 4. Skeleton de carga vs Lista real */}
       {cargando ? (
         <SkeletonListaCitas />
       ) : citas.length === 0 ? (
-        <div className="p-10 text-center text-gray-500 bg-white border border-gray-200 rounded-lg">
-          No hay citas que coincidan con este filtro.
-        </div>
+        // 👇 MEJORA: Componente EstadoVacio reutilizable
+        <EstadoVacio
+          titulo="No hay citas registradas"
+          descripcion="No se encontraron citas con los filtros actuales."
+          accion={{
+            label: "Limpiar filtros",
+            onClick: () => setSearchParams({}),
+          }}
+        />
       ) : (
         <>
           <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
             {citas.map((cita) => (
-              // Fila real con la MISMA estructura de altura que el Skeleton para evitar saltos
               <div
                 key={cita.id}
                 className="flex items-center gap-4 p-4 border-b border-gray-200 last:border-b-0"
@@ -141,7 +131,6 @@ export default function PaginaHistorialCitas() {
                   </p>
                 </div>
 
-                {/* Fecha y hora formateadas correctamente */}
                 <p className="text-sm text-gray-600 w-32 text-right leading-5">
                   {formatearFecha(cita.fecha)} <br />
                   <span className="text-gray-400">
@@ -164,7 +153,6 @@ export default function PaginaHistorialCitas() {
             ))}
           </div>
 
-          {/* 5. Controles de paginación */}
           <ControlesPaginacion
             pagina={pagina}
             totalPaginas={totalPaginas}

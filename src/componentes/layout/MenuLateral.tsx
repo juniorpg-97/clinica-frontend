@@ -83,7 +83,7 @@ export default function MenuLateral() {
           {usuario?.nombre ?? "Administrador"}
         </p>
         <p className="mt-1 text-xs text-slate-500">
-          {usuario?.rol ?? "Panel de gestión"}
+          {usuario?.role ?? "Panel de gestión"}
         </p>
 
         <button

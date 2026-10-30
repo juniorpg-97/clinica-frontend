@@ -19,9 +19,10 @@ import type { EstadoCita } from "../types/cita";
 import MetricCard from "../componentes/MetricCard";
 import StatusBadge from "../componentes/StatusBadge";
 import Encabezado from "../componentes/layout/Encabezado";
+// 👇 NUEVO: Import del Skeleton específico
+import { SkeletonMetricCard } from "../componentes/ui/SkeletonMetricCard";
 
 export default function PaginaDashboard() {
-  // --- STORES DE ZUSTAND ---
   const pacientes = usePacientesStore((s) => s.pacientes);
   const cargarPacientes = usePacientesStore((s) => s.cargar);
   const cargandoPacientes = usePacientesStore((s) => s.cargando);
@@ -31,12 +32,10 @@ export default function PaginaDashboard() {
   const actualizarEstado = useCitasStore((s) => s.actualizarEstado);
   const cargandoCitas = useCitasStore((s) => s.cargando);
 
-  // --- ESTADO LOCAL (Solo UI) ---
   const [mantenimiento, setMantenimiento] = useState<boolean>(false);
   const [totalMedicos, setTotalMedicos] = useState<number | null>(null);
   const [cargandoMedicos, setCargandoMedicos] = useState<boolean>(true);
 
-  // --- EFECTOS ---
   useEffect(() => {
     void cargarPacientes();
     void cargarTodasCitas();
@@ -58,7 +57,6 @@ export default function PaginaDashboard() {
 
   const cargando = cargandoPacientes || cargandoCitas || cargandoMedicos;
 
-  // --- DATOS DERIVADOS ---
   const totalPacientes = pacientes.length;
   const citasProgramadas = citas.filter(
     (c) => c.estado === "PROGRAMADA",
@@ -67,7 +65,6 @@ export default function PaginaDashboard() {
     (c) => c.estado === "COMPLETADA",
   ).length;
 
-  // --- ACCIONES ---
   const handleCambiarEstadoOptimista = async (
     id: number | string,
     nuevoEstado: EstadoCita,
@@ -145,41 +142,38 @@ export default function PaginaDashboard() {
                 Consulta el estado actual de la clínica.
               </p>
             </div>
-
             <div className="flex gap-3">
               <Link
                 to="/citas/nueva"
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-700"
               >
-                <CalendarDays size={18} />
-                Nueva cita
+                <CalendarDays size={18} /> Nueva cita
               </Link>
-
               <Link
                 to="/pacientes"
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-700"
               >
-                <Users size={18} />
-                Ver pacientes
-                <ArrowRight size={18} />
+                <Users size={18} /> Ver pacientes <ArrowRight size={18} />
               </Link>
             </div>
           </div>
 
-          {cargando && (
-            <p className="mb-4 text-sm text-slate-500" role="status">
-              Cargando métricas...
-            </p>
+          {/* 👇 MEJORA: Skeletons específicos en lugar de texto */}
+          {cargando ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <SkeletonMetricCard key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              {metricas.map((metrica) => (
+                <MetricCard key={metrica.id} metrica={metrica} />
+              ))}
+            </div>
           )}
-
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            {metricas.map((metrica) => (
-              <MetricCard key={metrica.id} metrica={metrica} />
-            ))}
-          </div>
         </section>
 
-        {/* Sección de Citas con UI Optimista */}
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-slate-900">
@@ -216,7 +210,6 @@ export default function PaginaDashboard() {
                     {cita.estado}
                   </span>
                 </div>
-
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -226,10 +219,8 @@ export default function PaginaDashboard() {
                     }
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40"
                   >
-                    <CheckCircle size={14} />
-                    Completar
+                    <CheckCircle size={14} /> Completar
                   </button>
-
                   <button
                     type="button"
                     disabled={cita.estado === "CANCELADA"}
@@ -238,13 +229,11 @@ export default function PaginaDashboard() {
                     }
                     className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-40"
                   >
-                    <XCircle size={14} />
-                    Cancelar
+                    <XCircle size={14} /> Cancelar
                   </button>
                 </div>
               </div>
             ))}
-
             {citas.length === 0 && !cargando && (
               <p className="text-sm text-slate-500 py-4 text-center">
                 No hay citas registradas actualmente.
@@ -259,7 +248,6 @@ export default function PaginaDashboard() {
               <div className="rounded-xl bg-teal-50 p-3 text-teal-700">
                 <Users size={24} />
               </div>
-
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
                   Gestión de pacientes
@@ -269,34 +257,26 @@ export default function PaginaDashboard() {
                 </p>
               </div>
             </div>
-
             <div className="mt-6 flex items-center gap-4">
               <span className="min-w-16 text-center text-3xl font-bold text-slate-900">
                 {totalPacientes}
               </span>
             </div>
-
             <Link
               to="/pacientes"
               className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-teal-700 hover:text-teal-900"
             >
-              Ir al listado de pacientes
-              <ArrowRight size={16} />
+              Ir al listado de pacientes <ArrowRight size={16} />
             </Link>
           </article>
 
           <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-3">
               <div
-                className={`rounded-xl p-3 ${
-                  mantenimiento
-                    ? "bg-red-50 text-red-600"
-                    : "bg-emerald-50 text-emerald-600"
-                }`}
+                className={`rounded-xl p-3 ${mantenimiento ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"}`}
               >
                 <Activity size={24} />
               </div>
-
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
                   Estado del sistema
@@ -306,25 +286,18 @@ export default function PaginaDashboard() {
                 </p>
               </div>
             </div>
-
             <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
               <StatusBadge activo={!mantenimiento} />
-
               <button
                 type="button"
                 onClick={() => setMantenimiento((actual) => !actual)}
-                className={`rounded-xl px-5 py-3 text-sm font-semibold text-white transition ${
-                  mantenimiento
-                    ? "bg-teal-600 hover:bg-teal-700"
-                    : "bg-red-600 hover:bg-red-700"
-                }`}
+                className={`rounded-xl px-5 py-3 text-sm font-semibold text-white transition ${mantenimiento ? "bg-teal-600 hover:bg-teal-700" : "bg-red-600 hover:bg-red-700"}`}
               >
                 {mantenimiento
                   ? "Desactivar mantenimiento"
                   : "Activar mantenimiento"}
               </button>
             </div>
-
             <div className="mt-6 flex items-center gap-3 rounded-xl bg-slate-50 p-4">
               <CalendarDays size={20} className="text-slate-500" />
               <p className="text-sm text-slate-600">

@@ -10,8 +10,14 @@ export default function RutaProtegida({ rolesPermitidos }: RutaProtegidaProps) {
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  // Usamos usuario?.rol para evitar errores de TypeScript (sin usar 'any')
-  if (rolesPermitidos && (!usuario || !rolesPermitidos.includes(usuario.rol))) {
+  if (rolesPermitidos && usuario) {
+    const rolUsuario = usuario.role.toUpperCase();
+    const rolesPermitidosMayus = rolesPermitidos.map((r) => r.toUpperCase());
+
+    if (!rolesPermitidosMayus.includes(rolUsuario)) {
+      return <Navigate to="/sin-acceso" replace />;
+    }
+  } else if (rolesPermitidos && !usuario) {
     return <Navigate to="/sin-acceso" replace />;
   }
 

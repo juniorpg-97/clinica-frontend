@@ -33,7 +33,7 @@ export default function Layout() {
                 {usuario?.nombre}
               </p>
               <p className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full inline-block">
-                {usuario?.rol}
+                {usuario?.role}
               </p>
             </Link>
 

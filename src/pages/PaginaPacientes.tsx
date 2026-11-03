@@ -15,6 +15,10 @@ import { useFiltrosStore } from "../stores/filtrosStore";
 import { extraerMensajeError } from "../lib/errorHandler";
 import type { Paciente, EstadoPaciente } from "../types/paciente";
 
+// 👇 NUEVOS IMPORTS PARA UI ROBUSTA
+import { SkeletonPacienteRow } from "../componentes/ui/SkeletonPacienteRow";
+import { EstadoVacio } from "../componentes/ui/EstadoVacio";
+
 const estados = [
   { valor: "Todos", etiqueta: "Todos los estados" },
   { valor: "activo", etiqueta: "Activo" },
@@ -41,7 +45,6 @@ const pacienteSchema = z.object({
 type FormPacienteValues = z.infer<typeof pacienteSchema>;
 
 export default function PaginaPacientes() {
-  // --- STORES ---
   const pacientes = usePacientesStore((s) => s.pacientes);
   const cargando = usePacientesStore((s) => s.cargando);
   const error = usePacientesStore((s) => s.error);
@@ -53,7 +56,6 @@ export default function PaginaPacientes() {
   const queryPacientes = useFiltrosStore((s) => s.queryPacientes);
   const setQueryPacientes = useFiltrosStore((s) => s.setQueryPacientes);
 
-  // --- ESTADO LOCAL (Solo UI) ---
   const [estadoFiltro, setEstadoFiltro] = useState<FiltroEstado>("Todos");
   const [mostrarFormulario, setMostrarFormulario] = useState<boolean>(false);
   const [idAEliminar, setIdAEliminar] = useState<string | number | null>(null);
@@ -77,7 +79,6 @@ export default function PaginaPacientes() {
     },
   });
 
-  // Cargar pacientes al montar el componente
   useEffect(() => {
     void cargar();
   }, [cargar]);
@@ -86,7 +87,6 @@ export default function PaginaPacientes() {
     const emailExiste = pacientes.some(
       (paciente) => paciente.email.toLowerCase() === data.email.toLowerCase(),
     );
-
     if (emailExiste) {
       toast.error("Ya existe un paciente registrado con ese correo.");
       return;
@@ -101,9 +101,7 @@ export default function PaginaPacientes() {
         telefono: data.telefono ? data.telefono.trim() : null,
         fechaNacimiento: new Date(data.fechaNacimiento).toISOString(),
       };
-
       const exito = await crear(payload as unknown as Omit<Paciente, "id">);
-
       if (exito) {
         toast.success("Paciente registrado");
         reset();
@@ -116,7 +114,6 @@ export default function PaginaPacientes() {
 
   const handleConfirmarEliminar = async (): Promise<void> => {
     if (idAEliminar === null) return;
-
     setEliminando(true);
     try {
       const exito = await eliminar(idAEliminar);
@@ -138,7 +135,6 @@ export default function PaginaPacientes() {
     void actualizar(id, { estado });
   };
 
-  // Filtrado local
   const pacientesFiltrados = pacientes.filter((paciente) => {
     const apellidoMostrar = paciente.apellido ?? paciente.apellidoPaterno ?? "";
     const nombreCompleto =
@@ -187,7 +183,6 @@ export default function PaginaPacientes() {
               Administra los registros y el estado de tus pacientes.
             </p>
           </div>
-
           <button
             type="button"
             disabled={cargando || !!error}
@@ -201,15 +196,27 @@ export default function PaginaPacientes() {
           </button>
         </section>
 
+        {/* 👇 MEJORA: Skeletons específicos en lugar de spinner manual */}
         {cargando && (
-          <section
-            role="status"
-            className="rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-sm"
-          >
-            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" />
-            <p className="mt-4 font-medium text-slate-700">
-              Cargando pacientes...
-            </p>
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50">
+                <tr className="text-xs uppercase tracking-wide text-slate-500">
+                  <th className="px-6 py-4">Paciente</th>
+                  <th className="px-6 py-4">Teléfono</th>
+                  <th className="px-6 py-4">Especialidad</th>
+                  <th className="px-6 py-4">Última cita</th>
+                  <th className="px-6 py-4">Estado actual</th>
+                  <th className="px-6 py-4">Cambiar estado</th>
+                  <th className="px-6 py-4">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <SkeletonPacienteRow key={i} />
+                ))}
+              </tbody>
+            </table>
           </section>
         )}
 
@@ -278,7 +285,6 @@ export default function PaginaPacientes() {
                 <p className="mt-1 text-sm text-slate-500">
                   Completa los datos para añadir un nuevo registro.
                 </p>
-
                 <form
                   onSubmit={handleSubmit(onSubmit)}
                   className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2"
@@ -297,7 +303,6 @@ export default function PaginaPacientes() {
                       </p>
                     )}
                   </label>
-
                   <label className="text-sm font-medium text-slate-700">
                     Apellido *
                     <input
@@ -312,7 +317,6 @@ export default function PaginaPacientes() {
                       </p>
                     )}
                   </label>
-
                   <label className="text-sm font-medium text-slate-700">
                     DNI *
                     <input
@@ -327,7 +331,6 @@ export default function PaginaPacientes() {
                       </p>
                     )}
                   </label>
-
                   <label className="text-sm font-medium text-slate-700">
                     Correo electrónico *
                     <input
@@ -342,7 +345,6 @@ export default function PaginaPacientes() {
                       </p>
                     )}
                   </label>
-
                   <label className="text-sm font-medium text-slate-700">
                     Teléfono
                     <input
@@ -352,7 +354,6 @@ export default function PaginaPacientes() {
                       className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
                     />
                   </label>
-
                   <label className="text-sm font-medium text-slate-700">
                     Fecha de nacimiento *
                     <input
@@ -366,7 +367,6 @@ export default function PaginaPacientes() {
                       </p>
                     )}
                   </label>
-
                   <label className="text-sm font-medium text-slate-700 sm:col-span-2">
                     Estado inicial
                     <select
@@ -378,7 +378,6 @@ export default function PaginaPacientes() {
                       <option value="en_espera">En espera</option>
                     </select>
                   </label>
-
                   <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row sm:justify-end">
                     <button
                       type="button"
@@ -410,7 +409,6 @@ export default function PaginaPacientes() {
                   </label>
                   <BuscadorPacientes />
                 </div>
-
                 <div className="w-full lg:w-64">
                   <label
                     htmlFor="filtro-estado"
@@ -433,7 +431,6 @@ export default function PaginaPacientes() {
                     ))}
                   </select>
                 </div>
-
                 <button
                   type="button"
                   onClick={handleLimpiarFiltros}
@@ -442,7 +439,6 @@ export default function PaginaPacientes() {
                   Limpiar filtros
                 </button>
               </div>
-
               <p className="mt-4 text-sm text-slate-500">
                 <span className="font-semibold text-slate-900">
                   {pacientesFiltrados.length}
@@ -476,13 +472,18 @@ export default function PaginaPacientes() {
                         onAbrirModalEliminar={setIdAEliminar}
                       />
                     ))}
+                    {/* 👇 MEJORA: EstadoVacio en lugar de texto simple */}
                     {pacientesFiltrados.length === 0 && (
                       <tr>
-                        <td
-                          colSpan={7}
-                          className="px-6 py-12 text-center text-slate-500"
-                        >
-                          No se encontraron pacientes con esos filtros.
+                        <td colSpan={7} className="px-6 py-12">
+                          <EstadoVacio
+                            titulo="No se encontraron pacientes"
+                            descripcion="Intenta ajustar los filtros de búsqueda o agrega un nuevo paciente."
+                            accion={{
+                              label: "Limpiar filtros",
+                              onClick: handleLimpiarFiltros,
+                            }}
+                          />
                         </td>
                       </tr>
                     )}
@@ -501,8 +502,15 @@ export default function PaginaPacientes() {
                 />
               ))}
               {pacientesFiltrados.length === 0 && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">
-                  No se encontraron pacientes con esos filtros.
+                <div className="col-span-full">
+                  <EstadoVacio
+                    titulo="No se encontraron pacientes"
+                    descripcion="Intenta ajustar los filtros de búsqueda o agrega un nuevo paciente."
+                    accion={{
+                      label: "Limpiar filtros",
+                      onClick: handleLimpiarFiltros,
+                    }}
+                  />
                 </div>
               )}
             </section>
